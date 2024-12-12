@@ -1,0 +1,1 @@
+Este archivo contiene ejercicios prácticos de análisis exploratorio de datos, transformación de datos a formato tidy, y visualización utilizando R. Se utilizaron herramientas como dplyr para manipulación de datos y gráficos para explorar tendencias y patrones en conjuntos de datos reales.
