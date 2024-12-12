@@ -1,0 +1,553 @@
+---
+title: "Tarea 2"
+author: "Aslie Cárdenas Sandoval"
+date: "2024-07-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<h2 style="color:goldenrod;">Pregunta 1</h2>
+
+Predecir el monto promedio de deuda en tarjeta de crédito de una cartera de clientes relativamente nuevos, basado en otra cartera de comportamiento y estructura similar de la cual sí se tiene información de deuda en tarjeta de crédito. En este ejercicio hacemos uso de la tabla de datos DeudaCredito.csv que contiene información de los clientes en una de las principales carteras de crédito del banco, e incluye variables que describen cada cliente tanto dentro del banco como fuera de éste.
+
+<br>
+<h4 style="color:skyblue;">Ejercicio 1</h4>
+Cargar la tabla de datos asegurese que las variables se están leyendo de forma correcta. ¿Es necesario recodificar variables? Seleccione la variable a predecir, y tome para entrenamiento un 80 % de la tabla de datos.
+```{r, message = FALSE, warning = FALSE}
+suppressPackageStartupMessages(library(fastDummies))
+library(fastDummies)
+
+datos.credito <- read.table("./DatosTarea2/DeudaCredito.csv", header = TRUE, sep = ",",dec='.', stringsAsFactors = TRUE)
+str(datos.credito)
+
+datos.sin.fila1 <- datos.credito[,-c(1, 11)]
+datos.credito2 <- fastDummies::dummy_cols(datos.sin.fila1, select_columns = c("Genero", "Estudiante"
+                                            ), remove_first_dummy = TRUE, remove_selected_columns = TRUE)
+
+#Lo que vamos a predecir
+balance <- datos.credito2$Balance
+
+numero.predictoras <- dim(datos.credito2)[2] - 1
+
+#obtenemos el numero de filas
+numero.filas <- nrow(datos.credito2)
+
+#Creamos muestra aleatoria de filas que representan el 20% del total de filas
+muestra <- sample(1:numero.filas, numero.filas*0.2)
+
+#datos para entrenar 80%
+datos.aprendizaje <- datos.credito2[-muestra,]
+
+datos.prueba <- datos.credito2[muestra,]
+
+
+```
+
+<br>
+<h4 style="color:skyblue;">Ejercicio 2</h4>
+Realice un Análisis Exploratorio de los datos con todos los datos que incluya al menos:
+
+- summary(...).
+- La matriz de correlaciones y alguno de sus gráficos. Interprete al menos dos correlaciones.
+- Encuentre al menos 3 datos atípicos, si es que existen en esta tabla de datos.
+```{r}
+library(GGally)
+library(corrplot)
+summary(datos.credito2)
+
+matriz.correlacion <- cor(datos.credito2)
+matriz.correlacion
+corrplot(matriz.correlacion, col = COL2("RdBu", 10))
+
+
+```
+
+Interpretaciones: 
+
+Balance tiene correlación fuertemente positiva con limite y calificación crediticia lo que significa que los que a mayor calificación y mayor limite de crédito el promedio de deuda aumenta.
+
+También el ingreso tiene correlación positiva con la calificación crediticia y el limite, si el ingreso crece la calificación y límite también y viceversa.
+
+
+
+```{r}
+
+ggplot(datos.credito2, aes(x = "", y = CalifCredit)) +
+  geom_boxplot(fill = "#fdd3f4", color = "#fa68d8", outlier.colour = "#fdd3f4", outlier.size = 2) +
+  labs(title = "Boxplot de Calificación crediticia", 
+       x = "", 
+       y = "Calificación crediticia del cliente") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"), 
+        axis.title.y = element_text(size = 12), 
+        axis.text.y = element_text(size = 10)) 
+
+```
+
+Interpretación: Los valores atípicos son clientes con calificación crediticia superior a los 600. En promedio se tiene una calificación de 350.
+
+
+```{r}
+ggplot(datos.credito2, aes(x = "", y = Ingreso)) +
+  geom_boxplot(fill = "#c8b9f7", color = "#a58aff", outlier.colour = "#c8b9f7", outlier.size = 2) +
+  labs(title = "Boxplot de Ingreso", 
+       x = "", 
+       y = "Ingreso del cliente, en miles de dólares") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"), 
+        axis.title.y = element_text(size = 12), 
+        axis.text.y = element_text(size = 10)) 
+
+```
+
+Interpretación: Los valores atípicos son clientes con ingresos superiores a 100.000 dólares. En promedio la mayoría tiene un ingreso de 50.000.
+
+```{r}
+# Boxplot para Límite
+ggplot(datos.credito2, aes(x = "", y = Limite)) +
+  geom_boxplot(fill = "lightblue", color = "skyblue", outlier.colour = "lightblue",position = "dodge", outlier.size = 2, width = 0.5) +
+  labs(title = "Boxplot de Límite", 
+       x = "", 
+       y = " Límite de crédito global en tarjetas de crédito del cliente") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"), 
+        axis.title.y = element_text(size = 12), 
+        axis.text.y = element_text(size = 10)) 
+
+```
+
+Interpretación: Los valores atípicos son clientes con límites de crédito mayor a 10000 dólares. En promedio se tiene un límite de 4000 dólares.
+
+<br>
+
+<h4 style="color:skyblue;">Ejercicio 3</h4>
+Basado en las estadísticas básicas explique cuál variable numérica parece ser la mejor para
+predecir la deuda en tarjeta de crédito.
+
+<style>
+.box { border: 2px solid #0072B2; padding: 10px; border-radius: 5px; }
+</style>
+<div class="box">
+  Basandonos en la matriz de correlación, se observa que la deuda en tarjeta de crédito tiene una correlación positiva fuerte con dos variables numéricas: Límite de crédito y calificación crediticia. La correlación entre el límite de crédito, la calificación crediticia y la deuda en tarjeta de crédito es  alta, lo que sugiere que a medida que aumenta el límite de crédito y clientes con calificaciones crediticias, tienden a aumentar la deuda en la tarjeta. Ambas variables presentan una cantidad similar de valores atípicos, por lo que ambas podrían funcionar parecido para realizar la predicción. </div>
+  
+<br>
+
+<h4 style="color:skyblue;">Ejercicio 4</h4>
+Genere un modelo de regresión lineal múltiple incluyendo las todas las variables predictoras. ¿Cuáles coeficientes obtiene para los β? Dé una interpretación de 3 de los coeficientes que se obtienen en el modelo. ¿Cuál variable parece tener més impacto sobre la variable a predecir y por qué?
+
+```{r}
+#Bondad de ajuste, se usa para predecir pero no para medir error
+#usamos todos los datos
+#efecto de cada variable predictora sobre la variable dependiente
+modelo <- lm(Balance ~ ., data = datos.credito2)
+modelo
+summary(modelo)
+```
+a) Ingreso:
+Por cada unidad de aumento en el ingreso, el balance de la tarjeta de crédito disminuye en promedio $7.80. Esto sugiere que las personas con mayores ingresos tienden a tener un balance de tarjeta de crédito más bajo.
+
+b) Limite:
+Por cada dólar de aumento en el límite de crédito, el balance de la tarjeta de crédito aumenta en promedio $0.19. Esto indica que las personas con límites de crédito más altos tienden a tener balances más altos.
+
+c) Estudiante_Si:
+Este indica que los estudiantes tienen un balance de tarjeta de crédito promedio que es $426.47 mayor en comparación con los no estudiantes.
+
+La variable Ingreso tiene el mayor impacto negativo en el balance. Un aumento en el ingreso se asocia con una disminución en el balance promedio, lo que podría indicar que los clientes con mayores ingresos tienden a manejar sus saldos de tarjeta de crédito más eficazmente.
+
+<br>
+<h4 style="color:skyblue;">Ejercicio 5</h4>
+
+¿Qué error se obtiene sobre la tabla de testing para el modelo de regresión lineal? Interprete las medidas de error obtenidas.
+```{r}
+#Enfoque Training-Testing, medimos el error
+#Lo hacemos con los datos de aprendizaje
+modelo.lm <- lm(Balance ~., data = datos.aprendizaje)
+modelo.lm
+```
+```{r}
+#Funciones para medir el error
+# Residual Sum of Square (RSS)
+RSS <- function(Pred,Real) {
+  ss <- sum((Real-Pred)^2)
+  return(ss)
+}
+
+# NumPred es el número total de predictores por eso se resta 1 (que es realidad sumar 1)
+RSE<-function(Pred,Real,NumPred) {
+  N<-length(Real)-NumPred-1  # <- length(Real)-(NumPred+1)
+  ss<-sqrt((1/N)*RSS(Pred,Real))
+  return(ss)
+}
+
+MSE <- function(Pred,Real) {
+  N<-length(Real)
+  ss<-(1/N)*RSS(Pred,Real)
+  return(ss)
+}
+
+error.relativo <- function(Pred,Real) {
+  ss<-sum(abs(Real-Pred))/sum(abs(Real))
+  return(ss)
+}
+# Funciones para desplegar precisión
+indices.precision <- function(real, prediccion,cantidad.variables.predictoras) {
+  return(list(error.cuadratico = MSE(prediccion,real),
+              raiz.error.cuadratico = RSE(prediccion,real,cantidad.variables.predictoras),
+              error.relativo = error.relativo(prediccion,real),
+              correlacion = as.numeric(cor(prediccion,real))))
+}
+
+
+# Gráfico de dispersión entre el valor real de la variable a predecir y la predicción del modelo.
+plot.real.prediccion <- function(real, prediccion, modelo = "") {
+  g <- ggplot(data = data.frame(Real = real, Prediccion = as.numeric(prediccion)), mapping = aes(x = Real, y = Prediccion)) +
+    geom_point(size = 1, col = "dodgerblue3") +
+    labs(title = paste0("Real vs Predicción", ifelse(modelo == "", "", paste(", con", modelo))),
+         x = "Real",
+         y = "Predicción")
+  return(g)
+}
+```
+
+
+
+```{r}
+#Hacer predicción con los datos de prueba
+prediccion <- predict(modelo.lm, datos.prueba)
+
+#Medimos precisión
+pre.lm <- indices.precision(datos.prueba$Balance, prediccion, numero.predictoras)
+pre.lm
+
+#grafico
+g <- plot.real.prediccion(datos.prueba$Balance, prediccion, modelo = "Regresión Lineal")
+g + geom_smooth(method = lm, linewidth = 0.4, color = "red", se = FALSE)
+```
+
+- El error cuadratico representa el promedio de los errores al cuadrado entre las predicciones y los valores reales. 
+
+- La raíz del error cuadrático indica que, en promedio, las predicciones del modelo se desvían alrededor de $118.51 de los valores reales del balance.
+
+- El rror relativo indica que el error promedio es aproximadamente el 14% del valor real del balance. Esto sugiere que las predicciones del modelo tienen un error relativo de alrededor del 15%.
+
+- La correlación es cercana a 1 e indica una correlación muy fuerte entre nuestras predicciones y los valores reales.
+
+
+<br>
+<h4 style="color:skyblue;">Ejercicio 6</h4>
+Si tuviera que eliminar alguna o algunas de las variables con la esperanza de que mejore la predicción ¿Cuál o cuáles de las variables eliminaría? ¿El nuevo modelo mejora la prediccón?
+
+- Intentar con variables que no son significativas como la educación, el género y si es casado.
+```{r}
+#nuevo modelo
+nuevo_modelo <- lm(Balance ~ Ingreso + Limite + CalifCredit + Tarjetas + Edad + Estudiante_Si, data = datos.aprendizaje)
+summary(nuevo_modelo)
+
+#comparar prediccion
+nueva_prediccion <- predict(nuevo_modelo, datos.prueba)
+nuevos_indices <- indices.precision(datos.prueba$Balance, nueva_prediccion, 6)  # 6 predictores ahora
+
+#comparar indices de presición
+print(pre.lm)  # Resultados del modelo original
+print(nuevos_indices)  # Resultados del nuevo modelo
+```
+ 
+ - Error cuadrático: Bajó un poco, la mejora es ligera.
+ - Raíz del error cuadrático: Bajó. Predicciones ligeramente más precisas.
+ - Error relativo: Pequeña mejora en precisión porcentual.
+ - Correlación:  iigual.
+
+Interpretación simple:
+El nuevo modelo es ligeramente mejor. Predice con un poco más de precisión y es más simple. La mejora es pequeña, pero como el modelo usa menos variables y da resultados un poco mejores.
+
+<h2 style="color:goldenrod;">Pregunta 2</h2>
+
+Un cliente nos contrata para estudiar una posible oportunidad de negocio, y para ver si le es rentable quiere una predicción de las ventas potenciales de asientos de niños para autos en su tienda. Para ello hacemos uso de los datos AsientosNinno.csv los cual contienen detalles de ventas de asientos de niños para auto en una serie de tiendas similares a las del cliente, y además los datos incluyen variables que definen características de la tienda y su localidad.
+La tabla de datos está formada por 400 filas y 11 columnas. 
+
+<br>
+<h4 style="color:skyblue;">Ejercicio 1</h4>
+
+Cargue la tabla de datos en R. En caso de ser necesario, recodificar las variables de forma adecuada. Seleccione la variable a predecir, y para medir el error tome un 15 % de la tabla de datos.
+```{r}
+datos.asientos <- read.table("./DatosTarea2/AsientosNinno.csv", header = TRUE, sep = ";",dec='.', stringsAsFactors = TRUE)
+str(datos.asientos)
+dim(datos.asientos)
+
+datos.sin.col <- datos.asientos[, -c(1)]
+datos.asientos.ninos <- fastDummies::dummy_cols(datos.sin.col, select_columns = c("CalidadEstant"), 
+                                                remove_first_dummy = FALSE, remove_selected_columns = TRUE)
+str(datos.asientos.ninos)
+
+#Dividimos los datos en conjunto de entrenamiento y prueba
+#Variable que vamos a predecir
+ventas <- datos.asientos.ninos$Ventas
+
+numero.predictoras.asientos <- dim(datos.asientos.ninos)[2] - 1
+
+#obtenemos el nummero de filas
+numero.filas.asientos <- nrow(datos.asientos.ninos)
+
+#Creamos muestra aleatoria de filas que representan el 15% del total de filas
+muestra.asientos <- sample(1:numero.filas.asientos, numero.filas.asientos*0.15)
+
+#datos para entrenar 75%
+datos.aprendizaje.asientos <- datos.asientos.ninos[-muestra,]
+
+datos.prueba.asientos <- datos.asientos.ninos[muestra,]
+
+dim(datos.prueba.asientos)
+dim(datos.aprendizaje.asientos)
+```
+
+<br>
+<h4 style="color:skyblue;">Ejercicio 2</h4>
+Realice un Análisis Exploratorio de los datos con todos los datos que incluya al menos:
+
+ - summary(...).
+ - La matriz de correlaciones y alguno de sus gráficos. Interprete al menos dos correlaciones.
+ - Encuentre al menos 3 datos atípicos, si es que existen en esta tabla de datos.
+```{r}
+library(GGally)
+library(corrplot)
+summary(datos.asientos.ninos)
+
+matriz.correlacion.asientos <- cor(datos.asientos.ninos)
+matriz.correlacion.asientos
+corrplot(matriz.correlacion.asientos, method = "number", col = COL2("RdBu", 10), tl.cex = 0.8, number.cex = 0.7)
+```
+
+Interpretaciones:
+
+- Ventas y calidad de estante(0.50) tienen una correlación positiva, mostrando que cuando los asientos están bien ubicados en estantes de buena calidad, las ventas tienden a ser mayores.
+
+- Ventas y precio cobrado(-0.44) tienen una correlación negativa. Sugiere que a medida que aumenta el precio, las ventas tienden a disminuir y viceversa.
+
+- Ventas y publicidad(0.27) tienen una correlación positiva, lo que indica que gastar más en publicidad puede ayudar a aumentar las ventas.
+
+
+```{r}
+find_outliers_boxplot <- function(x) {
+  return(boxplot.stats(x)$out)
+}
+
+# Encontrar outliers usando Boxplot Method
+outliers_boxplot <- lapply(datos.aprendizaje.asientos, find_outliers_boxplot)
+
+outliers_boxplot
+```
+Ventas, PrecioCompt y Precio tienen datos atípicos.
+
+
+<br>
+<h4 style="color:skyblue;">Ejercicio 3</h4>
+Aplique el modelo de regresión lineal múltiple incluyendo todas las variables predictoras.
+
+```{r}
+#1 crear modelo
+modelo.asientos <- lm(Ventas ~ ., data = datos.asientos.ninos)
+summary(modelo.asientos)
+
+```
+Precio (-0.095), un aumento en el precio reduce las ventas.
+Publicidad (0.123), un aumento en el gasto publicitario incrementa las ventas.
+CalidadEstant_Bueno (2.893), mejorar la ubicación de los asientos en los estantes aumenta las ventas. Esta es la variable que tiene mayor impacto en las ventas.
+
+
+<br>
+<h4 style="color:skyblue;">Ejercicio 4</h4>
+¿Qué error se obtiene sobre la tabla de training para el modelo generado anteriormente?
+
+```{r}
+
+#datos aprendizaje
+modelo.asientos.lm <- lm(Ventas ~., data = datos.aprendizaje.asientos)
+summary(modelo.asientos.lm)
+
+#predicción con datos de prueba
+prediccion.asientos <- predict(modelo.asientos.lm, datos.prueba.asientos)
+
+#medir precisión
+pre.lm.asientos <- indices.precision(datos.prueba.asientos$Ventas, prediccion.asientos, numero.predictoras.asientos)
+pre.lm.asientos
+
+#grafico
+g <- plot.real.prediccion(datos.prueba.asientos$Ventas, prediccion.asientos, modelo = "Regresión Lineal")
+g + geom_smooth(method = lm, linewidth = 0.4, color = "red", se = FALSE)
+
+```
+
+EL RSE es menor usando el enfoque traning testing. 
+El error relativo es aproximadamente 0.108, lo que indica que el error promedio es alrededor del 10.8% del valor real de las ventas. Esto sugiere que las predicciones del modelo tienen un error relativo de aproximadamente el 11%.
+La correlación es alta lo que sugiere que el modelo está capturando bien la tendencia general de los datos.
+
+
+
+<h2 style="color:goldenrod;">Pregunta 3</h2>
+
+La Tabla de Datos uscrime.csv contiene el cálculo de índice de crímenes violentos por habitante en Estados Unidos, como son el asesinato, la violación, el robo y asalto. Las variables incluidas son, entre otras, el porcentaje de la población considerada urbana, la renta media de la familia,
+la participación de las fuerzas del orden, el número de policías per cápita, el porcentaje de los oficiales asignados a las unidades de la droga. La variable a predecir es ViolentCrimesPerPop (Per Capita Violent Crimes in US). Usando un 67 % de esta tabla para Tabla de Aprendizaje y el restante
+33 % para Tabla de Testing.
+
+
+<br>
+<h4 style="color:skyblue;">Ejercicio 1</h4>
+Realice un Análisis Exploratorio de los datos con todos los datos.
+
+```{r}
+library(corrplot)
+
+datos.crimen <- read.table("./DatosTarea2/uscrime.csv", header = TRUE, sep = ",",dec='.', stringsAsFactors = TRUE)
+#str(datos3)
+dim(datos.crimen)
+
+str(datos.crimen)
+
+# Histograma de la variable objetivo
+ggplot(datos.crimen, aes(x = ViolentCrimesPerPop)) +
+  geom_histogram(bins = 30, fill = "skyblue", alpha = 0.7) +
+  theme_minimal() +
+  labs(title = "Distribución de Crímenes Violentos per Cápita",
+       x = "Crímenes Violentos per Cápita",
+       y = "Frecuencia") +
+  scale_x_continuous(limits = c(0, NA))  
+
+#Primeras 5 correlaciones positivas y las negativas
+cor.matrix <- cor(datos.crimen)
+
+
+correlaciones <- cor.matrix[,"ViolentCrimesPerPop"]
+abs_correlations <- abs(correlaciones)
+
+positive_correlations <- correlaciones[correlaciones > 0]
+negative_correlations <- correlaciones[correlaciones < 0]
+
+
+top.cor.positivas <- sort(positive_correlations, decreasing = TRUE)[2:6]
+top.cor.negativas <- sort(negative_correlations, decreasing = FALSE)[1:5]
+
+print(top.cor.positivas)
+print(top.cor.negativas)
+
+#Valores atípicos 
+z_scores <- as.data.frame(scale(datos.crimen))
+outliers <- which(abs(z_scores$ViolentCrimesPerPop) > 3)
+print(paste("Número de valores atípicos en ViolentCrimesPerPop:", length(outliers)))
+
+
+```
+
+
+<br>
+<h4 style="color:skyblue;">Ejercicio 2</h4>
+
+Construya un modelo predictivo para la variable ViolentCrimesPerPop usando una Regresión Lineal Múltiple con la función lm(...) en la Tabla de Aprendizaje y calcule Error Estándar de los Residuos para este modelo, además calcule el Error Cuadrático Medio y el Error Relativo para la Tabla de Testing.
+```{r}
+#Dividimos los datos en conjunto de entrenamiento y prueba
+#Variable que vamos a predecir
+violentCrimesPerPop <- datos.crimen$ViolentCrimesPerPop
+
+numero.predictoras.crimen <- dim(datos.crimen)[2] - 1
+
+#obtenemos el nummero de filas
+numero.filas.crimen <- nrow(datos.crimen)
+
+#Creamos muestra aleatoria de filas que representan el 33% del total de filas
+muestra.crimen <- sample(1:numero.filas.crimen, numero.filas.crimen*0.33)
+
+#datos para entrenar 67%
+datos.aprendizaje.crimen <- datos.crimen[-muestra,]
+
+datos.prueba.crimen <- datos.crimen[muestra,]
+
+#datos aprendizaje
+modelo.crimen.lm <- lm(ViolentCrimesPerPop~., data = datos.aprendizaje.crimen)
+
+#prediccion con datos de prueba
+prediccion.crimen <- predict(modelo.crimen.lm, datos.prueba.crimen)
+
+#medir precision
+pre.lm.crimen <- indices.precision(datos.prueba.crimen$ViolentCrimesPerPop, prediccion.crimen, numero.predictoras.crimen)
+
+pre.lm.crimen
+
+mse <- mean((datos.prueba.crimen$ViolentCrimesPerPop - prediccion.crimen)^2)
+
+rmse <- sqrt(mse)
+print("raiz error cuadratico")
+print(rmse)
+
+```
+<h2 style="color:goldenrod;">Pregunta Optativa</h2>
+
+
+<br>
+<h4 style="color:skyblue;">Ejercicio 1</h4>
+Programe en R una función lm2(...) que recibe como parámetro una tabla de aprendizaje y retorna un modelo de Regresión Lineal.
+```{r}
+lm2 <- function(data) {
+  y <- data$ViolentCrimesPerPop
+  X <- as.matrix(cbind(1, data[, -which(names(data) == "ViolentCrimesPerPop")]))
+  beta <- solve(t(X) %*% X) %*% t(X) %*% y
+  return(list(coefficients = beta))
+}
+```
+
+
+<br>
+<h4 style="color:skyblue;">Ejercicio 2</h4>
+Programe en R una función predict2(...) que recibe como parámetro el modelo construido en la pregunta anterior, una tabla de testing de modo tal que retorna la predicción para esta tabla de testing.
+```{r}
+predict2 <- function(model, newdata) {
+  X <- as.matrix(cbind(1, newdata[, -which(names(newdata) == "ViolentCrimesPerPop")]))
+  return(X %*% model$coefficients)
+}
+
+```
+
+
+<br>
+<h4 style="color:skyblue;">Ejercicio 3</h4>
+Usando la tabla de datos uscrime.csv compare los resultados de las funciones lm(...), lm2(...), predict(...) y predict2(...).
+```{r}
+# Modelos
+modelo_lm <- lm(ViolentCrimesPerPop ~ ., data = datos.aprendizaje.crimen)
+modelo_lm2 <- lm2(datos.aprendizaje.crimen)
+
+# Predicciones
+pred_lm <- predict(modelo_lm, datos.prueba.crimen)
+pred_lm2 <- predict2(modelo_lm2, datos.prueba.crimen)
+
+# Comparación
+print(head(pred_lm))
+print(head(pred_lm2))
+print(sum(abs(pred_lm - pred_lm2)))  # Diferencia total
+```
+
+
+<br>
+<h4 style="color:skyblue;">Ejercicio 4</h4>
+Usando la tabla de datos uscrime.csv y la función de R denominada system.time(...) compare los tiempos de ejecuci´on de las funciones lm(...), lm2(...), predict(...) y predict2(...).
+```{r}
+# Tiempo para lm y predict
+tiempo_lm <- system.time({
+  modelo_lm <- lm(ViolentCrimesPerPop ~ ., data = datos.aprendizaje.crimen)
+  pred_lm <- predict(modelo_lm, datos.prueba.crimen)
+})
+
+# Tiempo para lm2 y predict2
+tiempo_lm2 <- system.time({
+  modelo_lm2 <- lm2(datos.aprendizaje.crimen)
+  pred_lm2 <- predict2(modelo_lm2, datos.prueba.crimen)
+})
+
+print("Tiempo para lm y predict:")
+print(tiempo_lm)
+
+print("Tiempo para lm2 y predict2:")
+print(tiempo_lm2)
+```
+
