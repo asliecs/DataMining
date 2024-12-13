@@ -1,0 +1,1 @@
+Se utiliza el método K-medias para agrupar clientes según sus preferencias en productos, analizando los datos de evaluación promedio de compras en Amazon. Incluye la validación del Teorema de Fisher, determinación óptima de clústeres mediante métodos como Gap Statistic, WSS, y Silhouette, e interpretación de resultados con gráficos horizontales, verticales y radar
