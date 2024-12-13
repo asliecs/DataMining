@@ -1,0 +1,1 @@
+Se usaron árboles de decisión para predecir los datos de tumores cerebrales y Titanic. Los datos se dividieron en entrenamiento y prueba con createDataPartition. Se entrenaron los modelos con traineR, ajustando los parámetros para obtener los mejores resultados. Luego, se compararon con otros métodos y se graficaron los árboles obtenidos.
