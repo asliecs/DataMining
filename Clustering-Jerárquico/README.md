@@ -1,0 +1,1 @@
+Se aplica clustering jerárquico con distancia euclidiana y métodos de agregación como Salto Máximo, Salto Mínimo, Promedio y Ward, asignando clústeres e interpretando los resultados mediante gráficos de barras y radar. 
