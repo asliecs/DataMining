@@ -1,0 +1,253 @@
+---
+title: "Tarea 5"
+author: "Aslie Cárdenas Sandoval"
+date: "2024-09-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<h2 style="color:#FF1493;">Ejercicio 1</h2>
+En este ejercicio usaremos la tabla de datos EjemploAlgoritmosRecomendación.csv, la cual contiene los promedios de evaluación de 100 personas que adquirieron los mismos productos o muy similares en la tienda AMAZON. La idea consiste en recomendar a un cliente los productos que ha comprado otra persona que pertenece al mismo clúster.
+
+
+<h3 style="color:steelblue;">Ejercicio 1.a</h4>
+Ejecute el método k−medias con iter.max = 200, nstart = 100 para k = 4, luego desde RStudio verifique el Teorema de Fisher para este ejemplo.
+```{r}
+datos.amazon <- read.csv("./DatosTarea5/EjemploAlgoritmosRecomendacion.csv", header = TRUE, sep = ";",dec=',', row.names = 1)
+
+grupos <- kmeans(datos.amazon, centers = 4, iter.max = 200, nstart = 100)
+
+grupos$totss     #Inercia total
+grupos$withinss      #Inercia intra-clases por grupos
+grupos$tot.withinss  #Inercia intra-clases total
+grupos$betweenss     #Inercia inter-clases
+
+
+grupos$totss == grupos$tot.withinss + grupos$betweenss   #Teorema Fisher comprobación
+
+grupos$size
+
+
+```
+
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 1.b</h4>
+Ejecute el método k−medias con iter.max = 200, nstart = 100 , para esto encuentre valor de k usando los métodos Gap Statistic, wss y Average Silhouette usando la función fviz nbclust, luego interprete los resultados usando interpretación Horizontal-Vertical y gráficos tipo radar plot.
+```{r}
+library("factoextra")
+library("fmsb")
+mis.datos <- scale(datos.amazon)
+fviz_nbclust(mis.datos, kmeans, method="gap_stat")
+fviz_nbclust(mis.datos, kmeans, method="wss")
+fviz_nbclust(mis.datos, kmeans, method="silhouette")
+
+grupos.2 <- kmeans(datos.amazon, centers = 2, iter.max = 200, nstart = 100)
+
+colores <- c("#eff3df", "#fffbcb", "#ffd89a", "#ff92dd", "#c4abfa", "#1abcb1", "#af99db", "#65638e", "#2c3049", "#120b13")
+
+barplot(grupos.2$centers[1,],col=colores,las=2,cex.names = 0.7, ylim = c(0,12))
+
+barplot(grupos.2$centers[2,],col=colores,las=2,cex.names = 0.7, ylim = c(0,12))
+
+centros <- grupos.2$centers
+rownames(centros)<-c("Cluster 1","Cluster 2")
+centros<-as.data.frame(centros)
+maximos<-apply(centros,2,max)
+minimos<-apply(centros,2,min)
+centros<-rbind(minimos,centros)
+centros<-rbind(maximos,centros)
+
+color <- c("#2f9996","#fd8caf")
+
+radarchart(as.data.frame(centros),maxmin=TRUE,axistype=4,axislabcol="slategray4",
+             centerzero=FALSE,seg=8, cglcol="gray67",
+             pcol=color,plty=1,plwd=5,title="Comparación de clústeres")
+  
+legenda <-legend(1.5,1, legend=c("Cluster 1","Cluster 2"),
+                seg.len=-1.4,title="Clústeres",pch=21,bty="n" ,lwd=3, y.intersp=1, 
+                horiz=FALSE,col=color)
+
+
+```
+
+El Cluster 1 tiene puntuaciones más altas en la mayoría de las características, excepto en el tamaño del paquete. Los productos en este clúster son  de mayor calidad, más caros, con mejor servicio y entrega más rápida, mientras que los del Cluster 2 posiblemente son opciones más económicas con paquetes más grandes, tienen menos estrellas en las reseñas, lo que puede significar que factores como el servicio de retorno o el tamaño del paquete influyen en la satisfacción general.
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 1.c</h4>
+Si se tienen 7 clústeres usando usando el método de k-medias ¿Qué productos recomendaría a Teresa, a Leo y a Justin?, es decir, ¿los productos que compra cuál otro cliente? Usando distancia euclídea ¿cuál es la mejor recomendación de compra que le podemos hacer a Teresa, a Leo y a Justin?
+```{r}
+
+grupos.3 <- kmeans(datos.amazon, centers = 7, iter.max = 200, nstart = 100)
+grupos.3$cluster
+
+recomendar.cliente <- function(cliente, datos, clusters) {
+  cluster.cliente <- clusters[cliente]
+  
+  # Clientes en el mismo cluster
+  datos.mismo.cluster <- datos[clusters == cluster.cliente, ]
+  
+  # Excluir al propio cliente de los datos
+  datos.mismo.cluster <- datos.mismo.cluster[rownames(datos.mismo.cluster) != cliente, ]
+  
+  distancias <- dist(rbind(datos[cliente,], datos.mismo.cluster), method = "euclidean")
+  
+  distancias.matrix <- as.matrix(distancias)[-1, 1]
+  cliente.cercano <- which.min(distancias.matrix)
+  
+  nombre.cliente.cercano <- rownames(datos.mismo.cluster)[cliente.cercano]
+  distancia.cliente.cercano <- distancias.matrix[cliente.cercano]
+  
+  return(list(nombre = nombre.cliente.cercano, distancia = distancia.cliente.cercano))
+}
+
+clusters <- grupos.3$cluster
+
+cliente.cercano.teresa <- recomendar.cliente("Teresa", datos.amazon, clusters)
+cliente.cercano.leo <- recomendar.cliente("Leo", datos.amazon, clusters)
+cliente.cercano.justin <- recomendar.cliente("Justin", datos.amazon, clusters)
+
+cat("El cliente más cercano a Teresa es", cliente.cercano.teresa$nombre, "con una distancia de", cliente.cercano.teresa$distancia, "\n")
+cat("El cliente más cercano a Leo es", cliente.cercano.leo$nombre, "con una distancia de", cliente.cercano.leo$distancia, "\n")
+cat("El cliente más cercano a Justin es", cliente.cercano.justin$nombre, "con una distancia de", cliente.cercano.justin$distancia, "\n")
+#agrupacion <- data.frame((datos.amazon), grupos.3$cluster)
+#clusplot(agrupacion, grupos.3$cluster, color = TRUE, shade = TRUE, labels=2, lines=0)
+
+```
+
+
+
+<h3 style="color:#FF1493;">Ejercicio 2</h2>
+El conjunto de datos DatosBeijing.csv contiene datos por hora de la concentración de la partícula PM2.5 en la ciudad de Beijing, también incluye datos meteorológicos del Aeropuerto Internacional de Beijing. Efectúe un análisis de k-medias siguiendo los siguientes pasos:
+
+
+<h3 style="color:steelblue;">Ejercicio 2.a</h4>
+Cargue la tabla de datos y ejecute un str(...), summary(...) y un dim(...), verifique la correcta lectura de los datos.
+```{r}
+datos.beijing <- read.csv("./DatosTarea5/DatosBeijing.csv", header = TRUE, sep = ",",dec='.', row.names = 1)
+str(datos.beijing)
+summary(datos.beijing)
+dim(datos.beijing)
+```
+
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 2.b</h4>
+Elimine las filas con NA usando el comando na.omit(...). ¿Cuántas filas de eliminaron?
+```{r}
+datos.beijing2 <- na.omit(datos.beijing)
+
+filas.eliminadas <- nrow(datos.beijing) - nrow(datos.beijing2)
+filas.eliminadas
+```
+Se eliminaron 2067 filas
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 2.c</h4>
+Elimine de la tabla de datos la variable DireccionViento. ¿Por qué se debe eliminar? ¿Qué otra alternativa se tiene en lugar de eliminarla?
+```{r}
+library(dplyr)
+datos.beijing3 <- datos.beijing2 %>% select(-DireccionViento)
+str(datos.beijing3)
+summary(datos.beijing3)
+```
+Se elimina la variable porque es categórica y K-means solo funciona con datos numéricos. Otra alternativa para no eliminarla es convertirla en variables dummy.
+
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 2.d</h4>
+¿Qué pasa si ejecutamos un clustering jerárquico con hclust(...). ¿Por qué sucede esto?
+
+```{r}
+
+dist_matrix <- dist(datos.beijing3)  
+hc <- hclust(dist_matrix)             
+plot(hc, hang = -1)                              
+rect.hclust(hc, k=5, border="#FF1493")
+
+```
+
+El algoritmo tarda mucho en ejecutarse y el dendrograma resultante es difícil de interpretar, es muy dificil distinguir los clusteres, esto debido a que el clustering jerárquico no es adecuado para conjuntos de datos muy grandes.
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 2.e</h4>
+Ejecute un k-medias con k = 3, iter.max=1000 y nstart=50.
+```{r}
+grupos.beijing <- kmeans(datos.beijing3, centers = 3, iter.max = 1000, nstart = 50)
+```
+
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 2.f</h4>
+Dé una interpretación de los resultados usando un gráfico tipo radar.
+```{r}
+library("factoextra")
+library("fmsb")
+#grupos.beijing
+centros <- grupos.beijing$centers
+rownames(centros)<-c("Cluster 1","Cluster 2", "Cluster 3")
+centros<-as.data.frame(centros)
+maximos<-apply(centros,2,max)
+minimos<-apply(centros,2,min)
+centros<-rbind(minimos,centros)
+centros<-rbind(maximos,centros)
+
+
+color <- c("#d13775","#78C0A8","#5E412F")
+
+radarchart(as.data.frame(centros),maxmin=TRUE,axistype=4,axislabcol="slategray4",
+             centerzero=FALSE,seg=8, cglcol="gray67",
+             pcol=color,plty=1,plwd=5,title="Comparación de clústeres")
+  
+legenda <-legend(1.5,1, legend=c("Cluster 1","Cluster 2","Cluster 3"),
+                seg.len=-1.4,title="Clústeres",pch=21,bty="n" ,lwd=3, y.intersp=1, 
+                horiz=FALSE,col=color)
+
+
+
+
+
+```
+
+Interpretación:
+
+- El clúster 1 tiene los valores más altos en velocidad del viento y presión. Muestra un nivel bajo de concentración de partículas. Este clúster representa días ventosos y de alta presión, posiblemente en meses específicos. 
+
+- El clúster 2 presenta el nivel más alto de concentración de partículas, punto de rocío y horas de nieve. Tiene valores moderados en la variable temperatura y valores más bajos en presión y velocidad del viento. Representa periodos con alta contaminación del aire y nevadas.
+
+- El clúster 3 muestra niveles bajos de concentración de partículas y se asocia con altos valores de horas de lluvia, temperatura y punto de rocío. Este clúster representa periodos más recientes en año con condiciones cálidas y húmedas, caracterizadas por lluvias frecuentes. Estas condiciones probablemente contribuyen a una mejor calidad del aire, ya que hay una menor concentración de PM2.5.
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 2.g</h4>
+Construya el Codo de Jambu usando iter.max=100 y nstart=5, ¿cuántos conglomerados (clústeres) sugiere el codo? Utilice también el método silhouette de la función fviz nbclust, ¿cuántos conglomerados (clústeres) sugiere este método?
+```{r}
+library(factoextra)
+library(cluster)
+
+mis.datos.beijing <- scale(datos.beijing3)
+
+set.seed(123)
+sampled.data <- mis.datos.beijing[sample(1:nrow(mis.datos.beijing), size = 0.3 * nrow(mis.datos.beijing)), ]
+
+
+InerciaIC <- rep(0, 30) 
+
+for (k in 1:30) {
+  grupos <- kmeans(sampled.data, centers = k, iter.max = 100, nstart = 5)  
+  InerciaIC[k] <- grupos$tot.withinss 
+}
+
+plot(InerciaIC, col = "blue", type = "b")
+
+
+fviz_nbclust(sampled.data, kmeans, method = "silhouette", iter.max = 100, nstart = 5) 
+
+
+```
+
+
+- En el gráfico de Jambu el codo sugiere alrededor de 4 o 5 clústeres.
+- El método silhouette sugiere 3 clústeres.
