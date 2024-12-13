@@ -1,0 +1,322 @@
+---
+title: "Tarea 3"
+author: "Aslie Cárdenas Sandoval"
+date: "2024-08-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<h2 style="color:#FF1493;">Parte I</h2>
+
+En este ejercicio vamos a usar la tabla de datos SpotifyTop2018_40_V2.csv, que contiene una lista de 40 de las canciones más reproducidas en Spotify en el año 2018. Los datos incluyen una serie de características importantes del audio de cada canción.
+
+<br>
+<h4 style="color:steelblue;">Ejercicio 1.a</h4>
+Calcule el resumen numérico, interprete los resultados para dos variables.
+```{r}
+datos.spotify <- read.table("./DatosTarea3/SpotifyTop2018_40_V2.csv", header = TRUE, sep = ",",dec='.')
+summary(datos.spotify)
+```
+Interpretación: 
+
+ - El promedio de la duración de las canciones(duration_ms) es de 212.905 milisegundos.
+ - El tempo más bajo registrado es de 77.17 beats por minuto.
+
+<br>
+<h4 style="color:steelblue;">Ejercicio 1.b</h4>
+Realice un gráfico de dispersión e interprete dos similitudes en el gráfico.
+```{r}
+library(ggplot2)
+ggplot(datos.spotify, aes(x = danceability, y = energy)) +
+  geom_point(color = "blue", fill = "lightblue", shape=21, size=2) +
+  labs(x = "Danceability", y = "Energy", title = "Danceability vs Energy") +
+  theme_minimal()
+
+```
+
+Interpretación: El gráfico muestra que las canciones que son buenas para bailar suelen tener un poco más de energía. 
+
+<br>
+<h4 style="color:steelblue;">Ejercicio 1.c</h4>
+Para dos variables identifique los datos atípicos, si los hay.
+```{r}
+
+boxplot(datos.spotify$acousticness, main = "Boxplot de acousticness", col = "#fdd3f4", border = "#fa68d8")
+boxplot(datos.spotify$duration_ms, main = "Boxplot de duration_ms", col = "lightblue", border = "skyblue")
+
+```
+
+
+<h4 style="color:steelblue;">Ejercicio 1.d</h4>
+Calcule la matriz de correlaciones, incluya alguna de las imágenes que ofrece R e interpréte dos de las correlaciones. Debe ser una interpretación dirigida a una persona que no sabe nada de estadística.
+```{r}
+library(corrplot)
+matriz.correlacion <- cor(datos.spotify)
+corrplot(matriz.correlacion, col = COL2("PiYG", 10), tl.col = "darkgrey")
+
+```
+
+Interpretación:
+
+ - Hay correlación fuerte y positiva entre loudness y energy, lo que significa que las canciones con volumen más alto tienden a ser más enérgeticas.
+ - Tempo y danceability tienen correlación negativa, lo que sugiere que si la velocidad de la canción aumenta la capacidad de baile disminuye, mientras más rápida la canción, menos fácil de bailar.
+
+<br>
+<h4 style="color:steelblue;">Ejercicio 1.e</h4>
+Efectúe un ACP y dé una interpretación siguiendo los siguientes pasos:
+
+```{r}
+library("FactoMineR") 
+library("factoextra")
+mi.tema <- theme_grey() + theme(panel.border = element_rect(fill = NA,color = "white"), plot.title = element_text(hjust = 0.5))
+
+acp.resultado <- PCA(datos.spotify, scale.unit = TRUE, ncp = 5, graph = FALSE)
+
+fviz_pca_ind(acp.resultado, pointsize = 3, pointshape = 21, fill = "#fa68d8", repel = TRUE,ggtheme = mi.tema, labelsize = 2)
+
+fviz_pca_var(acp.resultado, col.var = "steelblue", ggtheme = mi.tema)
+
+```
+
+Individuos y variables mal representados:
+```{r}
+cos2.ind <- (acp.resultado$ind$cos2[,1]+acp.resultado$ind$cos2[,2])*100
+cos2.ind
+
+cos2.var <-(acp.resultado$var$cos2[,1]+acp.resultado$var$cos2[,2])*100
+cos2.var
+```
+
+
+1. Elimine de los gráficos individuos y variables con menos del 5 % de calidad de representación.
+```{r}
+fviz_pca_ind(acp.resultado, pointsize = 3, pointshape = 21, fill = "#fa68d8", repel = TRUE,ggtheme = mi.tema, labelsize = 2, select.ind = list(cos2 = 0.05))
+
+fviz_pca_var(acp.resultado, col.var = "steelblue", ggtheme = mi.tema, select.var = list(cos2 = 0.05))
+
+``` 
+
+2. En el círculo de correlación determine la correlación entre las variables.
+
+   - loudness y energy tienen correlación positiva, a medida que la sonoridad (loudness) de una pista aumenta, también lo hace su energía.
+   - time_signature y danceability tienen correlación positiva, canciones con beats de tiempo son más complejas para bailar.
+   - acousticness y speechiness tienen correlación positiva, las canciones que son más acústicas más voz.
+   - tempo y durabilidad tienen correlación negativa con danceablility, acousticness y speechiness, un tempo más rápido o más lento está asociado con una menor capacidad para bailar
+   - instrumentalness tiene correlación negativa con acousticness y speechiness, a medida que una pista se vuelve más instrumental suele tener menos características acústicas y una menor presencia de palabras.
+ 
+
+3. Explique la formación de los clústeres basado en la sobre-posición del círculo y el plano.
+
+   - Canciones que están el el cluster de arriba entre el centro y a la derecha, como Tunder, Solo, Rise, One Kiss son altas en lounness, energy y valence, por lo son energeticas y alegres.
+   - Las canciones que estan en el cluster de abajo abajo, como I like me better, taste, psycho, plug walk, etc, son altas en acousticness, speechiness y danceability, indicando que son más acústicas y bailables.
+   - Las canciones que estan en el cluster de arriba a la izquierda, como This is me, him & I y Perfect, son altas en tempo, instrumentalness y duracion en ms, pero son menos bailables y acústicas.
+ 
+ 
+4. En el plano de los componentes 1 y 3 interprete las canciones In My Feelings, In My Mind, Havana, Candy Paint y HUMBLE, que son mal representadas en los componentes 1 y 2.
+```{r}
+fviz_pca_ind(acp.resultado, axes = c(1, 3), pointsize = 3, pointshape = 21, fill = "#fa68d8", repel = TRUE, ggtheme = mi.tema, labelsize = 2)
+```
+
+ - In My Mind, Candy Paint y HUMBLE, están en el cluster de arriba donde el volumen, energia son altas, también el instrumentalness.
+ - In My Feelings, Havana, están en el cluster de abajo, donde acousticness, speechiness y danceablity son altas.
+ 
+<h2 style="color:#FF1493;">Parte II</h2>
+
+En este ejercicio vamos a usar los datos TablaAffairs.csv, los cuales recopilan información sobre infidelidades en parejas casadas, como lo es la edad de la persona, años de casado y el nivel de educación.
+
+<br>
+<h4 style="color:steelblue;">Ejercicio 2.a</h4>
+
+Calcule el resumen numérico, interprete los resultados para una variable.
+```{r}
+datos.infieles <- read.table("./DatosTarea3/TablaAffairs.csv", header = TRUE, sep = ";",dec='.', stringsAsFactors = TRUE)
+#Quitamos categóricas
+datos.infieles <- datos.infieles[,-c(1, 3, 6, 10)]
+
+str(datos.infieles)
+summary(datos.infieles)
+```
+ - El promedio de la variable edad es de 32 años.
+ - El promedio de los años que llevan casados los individuos es de 8 años.
+
+<br>
+<h4 style="color:steelblue;">Ejercicio 2.b</h4>
+Calcule la matriz de correlaciones, incluya alguna de las imágenes que ofrece R e interpréte dos de las correlaciones. Debe ser una interpretación dirigida a una persona que no sabe nada de estadística.
+```{r}
+correlacion.infieles <- cor(datos.infieles)
+correlacion.infieles
+corrplot(correlacion.infieles, addCoef.col = 'black', col = COL2("PiYG", 10), tl.col = "black")
+```
+
+Interpretación:
+ 
+ - Hay correlación fuerte y positiva entre la edad y los años de casados. Entre más edad tiene la persona, los años de casado también aumentan.
+ - Entre tiempo infiel y años de casado también hay correlación positiva, significa que entre más años de casado hay más posibilidad que haya pasado más tiempo siendo infiel.
+ - Timpo infiel tiene correlación negativa con Religioso, lo que puede suponer que  las personas más religiosas tienden a ser menos infieles y viceversa.
+
+<br>
+<h4 style="color:steelblue;">Ejercicio 2.c</h4>
+Usando solo las variables numéricas efectúe un ACP.
+```{r}
+acp.infieles <- PCA(datos.infieles, scale.unit = TRUE, ncp = 5, graph = FALSE)
+
+fviz_pca_ind(acp.infieles, pointsize = 2, pointshape = 21, fill = "#C51B7D", repel = TRUE,ggtheme = mi.tema, label = "none")
+
+fviz_pca_var(acp.infieles, col.var = "#7FBC41", ggtheme = mi.tema)
+```
+
+Dé una interpretación siguiendo los siguientes pasos:
+
+1. Elimine de los gráficos individuos y variables con menos del 5 % de calidad de representación.
+```{r}
+fviz_pca_ind(acp.infieles, pointsize = 2, pointshape = 21, fill = "#C51B7D", repel = TRUE,ggtheme = mi.tema, label = "none", select.ind = list(cos2 = 0.05))
+
+fviz_pca_var(acp.infieles, col.var = "#7FBC41", ggtheme = mi.tema, select.var = list(cos2 = 0.05))
+```
+
+2. En el plano principal encuentre 4 clústeres.
+```{r}
+clust <- kmeans(acp.infieles$ind$coord, centers = 4) # 4 clusters
+
+fviz_cluster(clust, geom = "point", data = acp.infieles$ind$coord, ellipse.alpha = 0.1)
+
+```
+
+3. En el círculo de correlación determine la correlación entre las variables.
+
+  - Educación y ocupación están fuerte y positivamente correlacionadas entre sí, mayor educación mejor categória de ocupación.
+  - Edad y años de casado también están correlacionadas positivamente, aumenta la edad, aumentan años de casado.
+  - La variable de tiempo infiel no esta tan bien representada en el plano, pero tiene una correlación fuerte con años casado.
+  - Educación y ocupación contra edad y años casado, no tienen correlación.
+  - También la educación y la ocupación tienen correlación negativa con religiosidad.
+
+
+4. Explique la formación de los clústeres basado en la sobre-posición del círculo y el plano.
+
+ - Clúster morado: Acá están los individuos que tienen una educación y ocupación más alta.
+
+ - Clúster azul: Acá están los individuos de mayor edad y más años de casados.
+ 
+ - Clúster rojo: Acá están los individuos que tienden a ser más religiosos.
+
+ - Clúster verde: En este cluster probablemente están los individuos menos religiosos y más jovenes.
+
+
+
+<br>
+<h4 style="color:steelblue;">Ejercicio 2.d</h4>
+Ahora convierta las variables Género e Hijos en Código Disyuntivo Completo y repita el ACP ¿Se gana interpretabilidad al convetir Género e Hijos en Código Disyuntivo Completo?
+```{r}
+datos.infieles.2 <- read.table("./DatosTarea3/TablaAffairs.csv", header = TRUE, sep = ";",dec='.', stringsAsFactors = TRUE)
+datos.infieles.2 <- datos.infieles.2[,-c(1, 10)]
+
+datos.infieles.nuevos <- fastDummies::dummy_cols(datos.infieles.2, select_columns = c("Genero", "Hijos"
+                                            ), remove_first_dummy = FALSE, remove_selected_columns = TRUE)
+
+acp.infieles.nuevo <- PCA(datos.infieles.nuevos, scale.unit = TRUE, ncp = 5, graph = FALSE)
+
+fviz_pca_ind(acp.infieles.nuevo, pointsize = 2, pointshape = 21, fill = "#C51B7D", repel = TRUE,ggtheme = mi.tema, label = "none", select.ind = list(cos2 = 0.05))
+
+fviz_pca_var(acp.infieles.nuevo, col.var = "#76d7c4", ggtheme = mi.tema, select.var = list(cos2 = 0.05))
+
+```
+
+R/ Sí, los datos están mejor distribuidos y son mucho más fácil de interpretar.
+
+<h2 style="color:#FF1493;">Parte III</h2>
+
+En este ejercicio vamos a realizar un ACP para la tabla SAheart.csv la cual contiene variables numéricas y categóricas mezcladas.
+
+<br>
+<h4 style="color:steelblue;">Ejercicio 3.a</h4>
+
+Efectúe un ACP usando solo las variables numéricas 
+```{r}
+datos.SAheart <- read.table("./DatosTarea3/SAheart.csv", header = TRUE, sep = ";",dec='.', stringsAsFactors = TRUE)
+#Quitamos categóricas
+datos.SAheart <- datos.SAheart[,-c(5, 10)]
+
+```
+
+Dé una interpretación siguiendo los siguientes pasos (para todos los ejercicios elimine de los gráficos individuos y variables con menos del 5 % de calidad de representación):
+```{r}
+acp.SAheart <- PCA(datos.SAheart, scale.unit = TRUE, ncp = 5, graph = FALSE)
+
+fviz_pca_ind(acp.SAheart, pointsize = 2, pointshape = 21, fill = "#5dade2", repel = TRUE,ggtheme = mi.tema, label = "none", select.ind = list(cos2 = 0.05))
+
+fviz_pca_var(acp.SAheart, col.var = "#7FBC41", ggtheme = mi.tema, select.var = list(cos2 = 0.05))
+```
+
+
+1. En el plano principal encuentre los clústeres.
+```{r}
+
+clust <- kmeans(acp.SAheart$ind$coord, centers = 3) # 3 clusters
+
+fviz_cluster(clust, geom = "point", data = acp.SAheart$ind$coord, ellipse.alpha = 0.1)
+
+```
+
+2. En el círculo de correlación determine la correlación entre las variables.
+   - Alcohol está muy correlacionado positivamente con tabaco.
+   - Tobacco está muy correlacionado positivamente con sbp.
+   - Edad tiene correlación positiva con sbp y adiposidad. A mayor edad, mayor presión arterial y mayor adiposidad.
+   - Obesidad está fuertemente correlacionada con adiposidad y con ldl. Mayor obesidad se asocia con mayor adiposidad y colesterol LDL.
+   - Typea tiene correlación negativa con alcohol.
+
+
+3. Explique la formación de los clústeres basado en la sobre-posición del círculo y el plano.
+
+   - Clúster rojo: Este clúster agrupa a individuos con mayor consumo en alcohol y tobacco.
+   - Clúster verde: Correlacionado negativamente con la mayoría de las variables. Representa a individuos más jóvenes, con menos factores de riesgo en general.
+   - Clúster azul: Representa individuos de mayor edad con mayores niveles de adiposidad, obesidad y LDL.
+   
+<br>
+<h4 style="color:steelblue;">Ejercicio 3.b</h4>
+
+Efectúe un ACP usando las variables numéricas y las variables categóricas (recuerde recodificar las categóricas usando código disyuntivo completo). 
+```{r}
+datos.SAheart.2 <- read.table("./DatosTarea3/SAheart.csv", header = TRUE, sep = ";",dec='.', stringsAsFactors = TRUE)
+
+datos.SAheart.nuevo <- fastDummies::dummy_cols(datos.SAheart.2, select_columns = c("famhist", "chd"
+                                            ), remove_first_dummy = FALSE, remove_selected_columns = TRUE)
+
+acp.SAheart.nuevo <- PCA(datos.SAheart.nuevo, scale.unit = TRUE, ncp = 5, graph = FALSE)
+
+fviz_pca_ind(acp.SAheart.nuevo, pointsize = 2, pointshape = 21, fill = "#5dade2", repel = TRUE,ggtheme = mi.tema, label = "none", select.ind = list(cos2 = 0.05))
+
+fviz_pca_var(acp.SAheart.nuevo, col.var = "#76d7c4", ggtheme = mi.tema, select.var = list(cos2 = 0.05))
+```
+
+
+Dé una interpretación siguiendo los siguientes pasos:
+
+1. En el plano principal encuentre los clústeres.
+```{r}
+clust <- kmeans(acp.SAheart.nuevo$ind$coord, centers = 3) # 3 clusters
+
+fviz_cluster(clust, geom = "point", data = acp.SAheart.nuevo$ind$coord, ellipse.alpha = 0.1)
+```
+
+Podemos notar los tres clústeres que se pueden interpretar de una manera más sencilla.
+
+2. En el círculo de correlación determine la correlación entre las variables.
+ 
+   - Adiposity, obesity y sbp tienen correlaciones positivas fuertes. A mayor adiposidad, mayor obesidad y mayor presión arterial sistólica (SBP).
+   - Age y tobacco también tienen correlaciones positivas
+   - Famhist_Absent y chd_No tienen correlación positiva. La ausencia de antecedentes familiares no está relacionada con la ausencia de enfermedad coronaria 
+   - Famhist_Absent con obesity o sbp tienen poca relación, igual que chd_No con age. La ausencia de antecedentes familiares tiene poca relación con la obesidad o la presión arterial sistólica, y la ausencia de enfermedad coronaria tiene poca relación con la edad.
+
+
+3. Explique la formación de los clústeres basado en la sobre-posición del círculo y el plano.
+
+    - Clúster rojo: Sugiere individuos con historial familiar de enfermedad cardíaca y diagnóstico positivo de CHD.
+    - Clúster verde: Representa individuos de mayor edad, con obesidad, presión arterial alta y consumo de tabaco.
+    - Clúster azul: Esta correlacionado positivamente con famhist_Absent y chd_No, representa individuos más jóvenes, sin historial familiar de enfermedad cardíaca y con menos factores de riesgo metabólicos.
+
+4. Explique las diferencias de este ACP respecto al anterior (usando solo las variables numéricas. ¿Cuál le parece más interesante? ¿Por qué?
+
+R/ El segundo ACP ofrece una visión más completa, ya que, en este caso, las variable categorías son relevantes en el contexto de los datos. No solo muestra cómo se relacionan las variables numéricas, sino que también muestra cómo las categorías influyen en la distribución de los datos. Al incluir una variable categórica, es más fácil ver cómo se agrupan los datos en el espacio y ayuda a identificar de manera más sencilla los patrones.
