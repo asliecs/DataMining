@@ -1,0 +1,486 @@
+---
+title: "Tarea 4"
+author: "Aslie Cárdenas Sandoval"
+date: "2024-08-28"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<h2 style="color:#FF1493;">Parte I</h2>
+En este ejercicio usaremos la tabla de datos EjemploAlgoritmosRecomendación.csv, la cual contiene los promedios de evaluación de 100 personas que adquirieron los mismos productos o muy similares en la tienda AMAZON. La idea consiste en recomendar a un cliente los productos que ha comprado otra persona que pertenece al mismo clúster.
+
+<br>
+<h4 style="color:steelblue;">Ejercicio 1.a</h4>
+Ejecute un Clustering Jerárquico con la distancia euclídea y la agregación del Salto Máximo, Salto Mínimo, Promedio y Ward. Guarde la tabla de datos en el archivo AlgoritmosRecomendación2.csv con el clúster al que pertenece cada individuo para el caso de la agregación de Ward usando 2 clústeres.
+```{r}
+Datos <- read.table("./DatosTarea4/EjemploAlgoritmosRecomendacion.csv", header = TRUE, sep = ";",dec=',', row.names = 1)
+
+modelo.complete <- hclust(dist(Datos), method = "complete")
+plot(modelo.complete, hang = -1)
+rect.hclust(modelo.complete, k=3, border="#FF1493")
+
+modelo.single <- hclust(dist(Datos), method = "single")
+plot(modelo.single, hang = -1)
+rect.hclust(modelo.single, k=3, border="#FF1493")
+
+modelo.average <- hclust(dist(Datos), method = "average")
+plot(modelo.average, hang = -1)
+rect.hclust(modelo.average, k=3, border="#FF1493")
+
+modelo.ward <- hclust(dist(Datos), method = "ward.D")
+plot(modelo.ward, hang = -1)
+rect.hclust(modelo.ward, k=3, border="#FF1493")
+
+grupo <- cutree(modelo.ward, k = 2)
+
+
+Datos$Grupo <- grupo
+
+write.csv(Datos, "AlgoritmosRecomendacion2.csv", row.names = FALSE)
+```
+
+
+<br>
+<h4 style="color:steelblue;">Ejercicio 1.b</h4>
+“Corte” el árbol anterior usando 2 clústeres y la agregación de Ward, interprete los resultados usando interpretación usando gráficos de barras (Horizontal-Vertical) y usando gráficos tipo Radar.
+```{r}
+library(cluster) 
+library(fmsb)
+# Función para encontrar el centroide de cada cluster
+centroide <- function(num.cluster, datos, clusters) {
+  ind <- (clusters == num.cluster)
+  return(colMeans(datos[ind,]))
+}
+
+centro.cluster1 <- centroide(1, Datos, grupo)
+centro.cluster2 <- centroide(2, Datos, grupo)
+centros <- rbind(centro.cluster1, centro.cluster2)
+centros
+
+
+paleta <- c("#ffabab", "#ffdaab", "#ddffab", "#abe4ff", "#d9abff", "#06d9b6", "#d4d323", "#d13775", "#9c3c86")
+barplot(centros[1,], col=paleta, las=2, cex.names = 0.8, ylim=c(0,10))
+
+barplot(centros[2,], col=paleta, las=2, cex.names = 0.8, ylim=c(0,10))
+
+barplot(t(centros),beside=TRUE,legend=colnames(Datos),main = "Gráfico de Interpretación de Clases",col=paleta, cex.names = 0.65, ylim = c(0,25))
+
+
+
+centros <- as.data.frame(centros)
+maximos <- apply(centros, 2, max)
+minimos <- apply(centros, 2, min)
+centros <- rbind(minimos, centros)
+centros <- rbind(maximos, centros)
+
+
+
+
+color <- c("#f79eb1","#4c5e91")
+radarchart(centros,maxmin=TRUE,axistype=4,axislabcol="slategray4",
+             centerzero=FALSE,seg=8, cglcol="gray67",
+             pcol=color,plty=1,plwd=5,title="Comparación de clústeres")
+  
+legenda <-legend(1.5,1, legend=c("Cluster 1","Cluster 2"),
+                seg.len=-1.4,title="Clústeres",pch=21,bty="n" ,lwd=3, y.intersp=1, 
+                horiz=FALSE,col=color)
+
+```
+
+El Cluster 1 representa productos que son más caros, con entregas más lentas, con mejor servicio de retorno y paquetes más grandes. Estos productos tienen más estrellas en las reseñas, lo que  indica una mayor satisfacción general del cliente a pesar de algunas desventajas.
+
+El Cluster 2 representa productos con entrega más rápida y precios más bajos. Tienen menos estrellas en las reseñas, lo que significa que  factores como el servicio de retorno o el tamaño del paquete influyen en la satisfacción general.
+
+<br>
+<h4 style="color:steelblue;">Ejercicio 1.c</h4>
+Si se tienen 4 clústeres usando agregación de Ward ¿Qué productos recomendaría a Teresa, a Leo y a Justin?, es decir, ¿los productos que compra cuál otro cliente? Usando distancia euclídea ¿cuál es la mejor recomendación de compra que le podemos hacer a Teresa, a Leo
+y a Justin?
+```{r}
+
+grupo.4 <- cutree(modelo.ward, k = 4)
+
+clientes.cluster.1 <- rownames(Datos)[grupo.4 == 1]
+print(clientes.cluster.1)
+
+datos.cluster1 <- Datos[grupo.4 == 1, ]
+
+#Matriz de distancias euclídeas entre todos los clientes del clúster 1
+distancias.cluster1 <- dist(datos.cluster1, method = "euclidean")
+distancias.matrix.cluster1 <- as.matrix(distancias.cluster1)
+print(distancias.matrix.cluster1)
+
+
+```
+
+A Teresa le recomendaría los productos que compra Marisol ya que es la cliente más cercana en su mismo clúster, ella es la más parecida en cuanto a preferencias de compra.
+
+```{r}
+clientes.cluster.3 <- rownames(Datos)[grupo.4 == 3]
+print(clientes.cluster.3)
+
+datos.cluster3 <- Datos[grupo.4 == 3, ]
+
+distancias.cluster3 <- dist(datos.cluster3, method = "euclidean")
+distancias.matrix.cluster3 <- as.matrix(distancias.cluster3)
+
+```
+A Leo le recomendaría los productos que compra María ya que es la cliente más cercana en su mismo clúster, ella es la más parecida en cuanto a preferencias de compra.
+
+```{r}
+clientes.cluster.4 <- rownames(Datos)[grupo.4 == 4]
+print(clientes.cluster.4)
+
+datos.cluster4 <- Datos[grupo.4 == 4, ]
+
+distancias.cluster4 <- dist(datos.cluster4, method = "euclidean")
+distancias.matrix.cluster4 <- as.matrix(distancias.cluster4)
+
+```
+A Justin le recomendaría los productos que compra Flavia ya que es la cliente más cercana en su mismo clúster, ella es la más parecida en cuanto a preferencias de compra.
+
+
+```{r}
+
+recomendar.cliente <- function(cliente, datos, clusters) {
+  cluster.cliente <- clusters[cliente]
+  
+  #Clientes en el mismo cluster
+  datos.mismo.cluster <- datos[clusters == cluster.cliente, ]
+  
+  # Excluir al propio cliente de los datos
+  datos.mismo.cluster <- datos.mismo.cluster[rownames(datos.mismo.cluster) != cliente, ]
+  
+  distancias <- dist(rbind(Datos[cliente,], datos.mismo.cluster), method = "euclidean")
+  
+  distancias.matrix <- as.matrix(distancias)[-1, 1]
+  cliente.cercano <- which.min(distancias.matrix)
+  
+  nombre.cliente.cercano <- rownames(datos.mismo.cluster)[cliente.cercano]
+  distancia.cliente.cercano <- distancias.matrix[cliente.cercano]
+  
+  return(list(nombre = nombre.cliente.cercano, distancia = distancia.cliente.cercano))
+}
+
+
+cliente.cercano.teresa <- recomendar.cliente("Teresa", Datos, grupo.4)
+cliente.cercano.leo <- recomendar.cliente("Leo", Datos, grupo.4)
+cliente.cercano.justin <- recomendar.cliente("Justin", Datos, grupo.4)
+
+
+cat("El cliente más cercano a Teresa es", cliente.cercano.teresa$nombre, "con una distancia de", cliente.cercano.teresa$distancia, "\n")
+cat("El cliente más cercano a Leo es", cliente.cercano.leo$nombre, "con una distancia de", cliente.cercano.leo$distancia, "\n")
+cat("El cliente más cercano a Justin es", cliente.cercano.justin$nombre, "con una distancia de", cliente.cercano.justin$distancia, "\n")
+
+
+
+```
+
+Por lo tanto a Teresa se le recomienda los productos que compra Marisol porque sus preferencias son las más cercanas, a Leo los de María y a Justin los que compra Flavia.
+
+
+<br>
+<h4 style="color:steelblue;">Ejercicio 1.d</h4>
+Construya un clustering jerárquico sobre las componentes principales del ACP.
+```{r}
+library("FactoMineR") 
+library("factoextra")
+library("ggplot2")
+datos.recomendacion.componentes <- read.table("./DatosTarea4/EjemploAlgoritmosRecomendacion.csv", header = TRUE, sep = ";",dec=',', row.names = 1)
+
+resultado <- PCA(datos.recomendacion.componentes, scale.unit=TRUE, ncp=5, graph = FALSE)
+
+res.hcpc <- HCPC(resultado, nb.clust = -1, consol = TRUE, min = 3, max = 3, graph = FALSE)
+
+suppressWarnings(
+  fviz_dend(res.hcpc, k = 4, # Número de clústeres
+            main = "Dendrograma del Clustering Jerárquico",
+            xlab = "Observaciones",
+            ylab = "Distancia",
+            color_labels_by_k = TRUE,
+            palette = "jco")
+)
+
+
+
+```
+
+
+
+<h2 style="color:#FF1493;">Parte II</h2>
+La tabla de datos VotosCongresoUS.csv la cual contiene 16 votos (y=Sí, n=No, NS=No votó) dados por los congresistas de Estados Unidos respecto a 16 temáticas diferentes, además en la primera columna aparece el partido al que pertenecen (Republicano o Demócrata).
+
+<br>
+<h4 style="color:steelblue;">Ejercicio 2.a</h4>
+Ejecute una clasificación jerárquica sobre esta tabla de datos usando la función daisy ya que los datos son cualitativos. Use métrica euclidean y método complete (deje el resultado en la variable jer). 
+```{r}
+library(factoextra)
+library(cluster)
+Datos.votos <- read.csv("./DatosTarea4/VotosCongresoUS.csv",header=TRUE, sep=",", dec=".", stringsAsFactors = TRUE)
+
+D <- daisy(Datos.votos, metric = "euclidean")
+
+
+jer <- hclust(D, method = "complete")
+
+
+```
+
+<br>
+<h4 style="color:steelblue;">Ejercicio 2.b</h4>
+Luego “corte” el árbol usando 3 clústeres y ejecute el siguiente código
+```{r}
+grupo<-cutree(jer, k = 3)
+NDatos<-cbind(Datos.votos,grupo)
+cluster<-NDatos$grupo
+
+sel.cluster1<-match(cluster,c(1),0)
+Datos.Cluster1<-NDatos[sel.cluster1>0,]
+dim(Datos.Cluster1)
+
+sel.cluster2<-match(cluster,c(2),0)
+Datos.Cluster2<-NDatos[sel.cluster2>0,]
+dim(Datos.Cluster2)
+
+sel.cluster3<-match(cluster,c(3),0)
+Datos.Cluster3<-NDatos[sel.cluster3>0,]
+dim(Datos.Cluster3)
+
+```
+
+Explique qué hace el código anterior. 
+
+El código anterior divide los datos en 3 clústeres y la informacion del número del cluster se guarda en una nueva columnna llamada grupo.
+Después con match() encuentramos las filas que pertenecen a un clúster específico, se selecciona las filas de los datos correspondientes al clúster y se muestra el tamaño de la dimensión de cada clúster. Por ejemplo el clúster 1 tiene una dimensión de 232 filas y 18 columnas.
+
+Luego ejecute el siguiente código:
+```{r}
+plot(Datos.votos$Party,col=c(4,6),las=2,main="Party",xlab="Todos los Datos")
+
+plot(Datos.Cluster1$Party,col=c(4,6),las=2,main="Party",xlab="Cluster-1")
+plot(Datos.Cluster2$Party,col=c(4,6),las=2,main="Party",xlab="Cluster-2")
+plot(Datos.Cluster3$Party,col=c(4,6),las=2,main="party",xlab="Cluster-3")
+
+```
+
+Con ayuda de los gráficos anteriores y tomando en cuenta el tamaño de cada cluster interprete los 3 clústeres formados.
+
+- El primer gráfico muestra la distribución de los partidos en todo el conjunto de datos. En general, hay más demócratas que republicanos en el conjunto de datos completo.
+
+- El gráfico del clúster 1 muestra la distribución de los partidos políticos en este clúster, en este hay mayoría de republicanos sobre demócratas.  
+
+- En el gráfico del clúster 2 se agrupan principlamente los miembros demócratas  del conjunto de datos. Hay una diferencia significativa ya que los republicanos son muy pocos, casi ninguno.
+
+- El gráfico del clúster 3 es un grupo muy específico y pequeño, ya que solo hay 5 personas, 2 demócratas  y 3 republicanos. La distribución es casi igual.
+
+<h2 style="color:#FF1493;">Parte III</h2>
+
+Realice un análisis similar al del ejercicio anterior con la tabla de datos CompraBicicletas.csv.
+```{r}
+Datos.bicis <- read.csv("./DatosTarea4/CompraBicicletas.csv",header=TRUE, sep=";", dec=".", stringsAsFactors = TRUE)
+
+str(Datos.bicis)
+
+Da <- daisy(Datos.bicis, metric = "euclidean")
+
+
+jer <- hclust(Da, method = "complete")
+grupos.b <- cutree(jer, k=3)
+centro.cluster1.b<-centroide(1, Datos.bicis[,-c(1,2,3,6,7,8,10,11,13)],grupos.b)
+
+centro.cluster2.b<-centroide(2, Datos.bicis[,-c(1,2,3,6,7,8,10,11,13)],grupos.b)
+
+centro.cluster3.b<-centroide(3, Datos.bicis[,-c(1,2,3,6,7,8,10,11,13)],grupos.b)
+
+centros<-rbind(centro.cluster1.b, centro.cluster2.b, centro.cluster3.b)
+
+centros<-as.data.frame(centros)
+maximos<-apply(centros, 2, max)
+minimos<-apply(centros, 2, min)
+centros<-rbind(minimos, centros)
+centros<-rbind(maximos, centros)
+centros
+
+
+color <- c("#d13775","#78C0A8","#5E412F")
+
+radarchart(as.data.frame(centros),maxmin=TRUE,axistype=4,axislabcol="slategray4",
+             centerzero=FALSE,seg=8, cglcol="gray67",
+             pcol=color,plty=1,plwd=5,title="Comparación de clústeres")
+  
+legenda <-legend(1.5,1, legend=c("Cluster 1","Cluster 2","Cluster 3"),
+                seg.len=-1.4,title="Clústeres",pch=21,bty="n" ,lwd=3, y.intersp=1, 
+                horiz=FALSE,col=color)
+
+
+```
+
+Interpretación: 
+
+- Las personas del clúster 1 son las más jovenes, con menores ingresos, sin carros y sin hijos.
+- Las personas del clúster 2 son las que tienen mayores ingresos y poseen más carros, tienen más edad que los del clúster 1 pero menos que los del clúster 3 y tienen hijos.
+- Las personas del clúster 3 son las de más edad y con más hijos, sus ingresos son menores que los del clúster 2 y la cantidad de carros también es menor, pero poseen más que los del clúster 1.
+
+
+
+```{r}
+grupo <- cutree(jer, k=3)
+NDatos<- cbind(Datos.bicis, grupo)
+cluster <- NDatos$grupo
+
+sel.cluster1<-match(cluster,c(1),0)
+Datos.Cluster1<-NDatos[sel.cluster1>0,]
+dim(Datos.Cluster1)
+
+sel.cluster2<-match(cluster,c(2),0)
+Datos.Cluster2<-NDatos[sel.cluster2>0,]
+dim(Datos.Cluster2)
+
+sel.cluster3<-match(cluster,c(3),0)
+Datos.Cluster3<-NDatos[sel.cluster3>0,]
+dim(Datos.Cluster3)
+
+
+color1 <- c("#f97992", "#231b42")
+color2 <- c("#dddd92", "#00b5b9")
+color3 <- c("#ef9ca4", "#c4ddd6")
+color4 <- c("#5adb94", "#0ba18c", "#8a034d")
+color5 <- c("#fa8cb1", "#fdc5c9", "#fffee1", "#cfb699", "#9e6d4e")
+color6 <- c("#fffab3", "#a2e5d2", "#63b397", "#9dab34", "#2c2321")
+
+
+
+plot(Datos.bicis$MaritalStatus, col = color2, las = 1, main = "Variable Marital Status", xlab = "Todos los datos")
+
+par(mfrow = c(1, 3))
+plot(Datos.Cluster1$MaritalStatus, col = color2, las = 1, main = "Variable Marital Status", xlab = "Cluster 1")
+plot(Datos.Cluster2$MaritalStatus, col = color2, las = 1, main = "Variable Marital Status", xlab = "Cluster 2")
+plot(Datos.Cluster3$MaritalStatus, col = color2, las = 1, main = "Variable Marital Status", xlab = "Cluster 3")
+par(mfrow = c(1, 1))
+
+
+```
+
+- En el clúster 1 y el clúster 2 la mayoría de personas son solteras. 
+- En el clúster 3 la mayoría son casadas.
+
+
+
+```{r}
+plot(Datos.bicis$Gender, col = color1, las = 1, main = "Variable Gender", xlab = "Todos los datos")
+par(mfrow = c(1, 3))
+plot(Datos.Cluster1$Gender, col = color1, las = 1, main = "Variable Gender", xlab = "Cluster 1")
+plot(Datos.Cluster2$Gender, col = color1, las = 1, main = "Variable Gender", xlab = "Cluster 2")
+plot(Datos.Cluster3$Gender, col = color1, las = 1, main = "Variable Genders", xlab = "Cluster 3")
+par(mfrow = c(1, 1))
+
+```
+
+- En el clúster 1 la mayoría de personas son mujeres.
+- En el clúster 2 y el clúster 3 son más hombres.
+
+```{r}
+plot(Datos.bicis$HomeOwner, col = color3, las = 1, main = "Variable Home Owner", xlab = "Todos los datos")
+par(mfrow = c(1, 3))
+plot(Datos.Cluster1$HomeOwner, col = color3, las = 1, main = "Variable Home Owner", xlab = "Cluster 1")
+plot(Datos.Cluster2$HomeOwner, col = color3, las = 1, main = "Variable Home Owner", xlab = "Cluster 2")
+plot(Datos.Cluster3$HomeOwner, col = color3, las = 1, main = "Variable Home Owner", xlab = "Cluster 3")
+par(mfrow = c(1, 1))
+
+```
+
+- Del clúster 1 y el clúster 3 la mayor parte de los individuos son dueños de casa.
+- En el clúster 3 predomina más que sean dueños de casas.
+- En el clúster 2 la diferencia es poca entre quien posee y no una casa.
+
+```{r}
+plot(Datos.bicis$Region, col = color4, las = 1, main = "Variable Region", xlab = "Todos los datos")
+par(mfrow = c(1, 3))
+plot(Datos.Cluster1$Region, col = color4, las = 2, main = "Variable Region", xlab = "Cluster 1")
+plot(Datos.Cluster2$Region, col = color4, las = 2, main = "Variable Region", xlab = "Cluster 2")
+plot(Datos.Cluster3$Region, col = color4, las = 2, main = "Variable Region", xlab = "Cluster 3")
+par(mfrow = c(1, 1))
+
+```
+
+- En el clúster 1 la mayoría de los individuos son de Europa.
+- En el clúster 2 predomina más el que sean del pacífico.
+- En el clúster 3 hay más individuos de norte américa.
+
+```{r}
+plot(Datos.bicis$PurchasedBike, col = color2, las = 1, main = "Variable Purchased Biked", xlab = "Todos los datos")
+par(mfrow = c(1, 3))
+plot(Datos.Cluster1$PurchasedBike, col = color2, las = 1, main = "Variable Purchased Biked", xlab = "Cluster 1")
+plot(Datos.Cluster2$PurchasedBike, col = color2, las = 1, main = "Variable Purchased Biked", xlab = "Cluster 2")
+plot(Datos.Cluster3$PurchasedBike, col = color2, las = 1, main = "Variable Purchased Biked", xlab = "Cluster 3")
+par(mfrow = c(1, 1))
+
+```
+- Los 3 clústeres se mantienen equilibrados en cuanto a si el individuo compró o no una bicicleta, sin embargo en los 3 clústeres predomina por poco el que no hayan comprado.
+
+```{r}
+plot(Datos.bicis$Occupation, col = color5, las = 2, main = "Variable Occupation - Todos los datos")
+layout(matrix(1:3, nrow = 1, ncol = 3))
+plot(Datos.Cluster1$Occupation, col = color5, las = 2, main = "Variable Occupation", xlab = "Cluster 1", cex.axis = 0.8, cex.main = 0.9)
+plot(Datos.Cluster2$Occupation, col = color5, las = 2, main = "Variable Occupation", xlab = "Cluster 2", cex.axis = 0.8, cex.main = 0.9)
+plot(Datos.Cluster3$Occupation, col = color5, las = 2, main = "Variable Occupation", xlab = "Cluster 3", cex.axis = 0.8, cex.main = 0.9)
+layout(1)
+```
+
+- En el clúster 1 hay más personas con ocupación clerical o tipo administrativa, también sobresale el trabajo manual.
+- En el clúster 2 la mayoría tiene una ocupación de profesional y un poco de gerencial(managment)
+- El clúster 3 es más variado, sobresalen las ocupaciones skilled manual, gerencial y profesional.
+```{r}
+plot(Datos.bicis$CommuteDistance, col = color6, las = 1, main = "Variable CommuteDistance", xlab = "Todos los datos")
+par(mfrow = c(1, 3))
+plot(Datos.Cluster1$CommuteDistance, col = color6, las = 2, main = "Variable CommuteDistance", xlab = "Cluster 1")
+plot(Datos.Cluster2$CommuteDistance, col = color6, las = 2, main = "Variable CommuteDistance", xlab = "Cluster 2")
+plot(Datos.Cluster3$CommuteDistance, col = color6, las = 2, main = "Variable CommuteDistance", xlab = "Cluster 3")
+par(mfrow = c(1, 1))
+```
+- El clúster 1 incluye individuos que viven muy cerca de su lugar de trabajo, con distancias de desplazamiento muy cortas, de entre 0 y 1 milla.
+- El clúster 2 agrupa a individuos que viven a una distancia considerable de su lugar de trabajo, más de 10 millas.
+- El clúster 3 incluye individuos que viven a una distancia moderada de su lugar de trabajo, entre 5 y 10 millas y también individuos que viven cerca de su lugar de trabajp entre 0 y 1 milla.
+
+```{r}
+plot(Datos.bicis$Education, col = color6, las = 2, main = "Variable Education", xlab = "Todos los datos")
+par(mfrow = c(1, 3))
+plot(Datos.Cluster1$Education, col = color6, las = 2, main = "Variable Education", xlab = "Cluster 1")
+plot(Datos.Cluster2$Education, col = color6, las = 2, main = "Variable Education", xlab = "Cluster 2")
+plot(Datos.Cluster3$Education, col = color6, las = 2, main = "Variable Education", xlab = "Cluster 3")
+par(mfrow = c(1, 1))
+```
+
+- Por último en el clúster 1 el rango más alto en educación es universidad incompleta(Partial college).
+- En el clúster 2 están personas con un nivel más alto con un título universitario(Bachelors).
+- En el clúster 3 está parecido al clúster 2, pero hay más personas con Posgrado que en el clúster 2.
+
+<br>
+<h2 style="color:#FF1493;">Parte IV</h2>
+Dada la siguiente matriz de disimilitudes entre cuatroindividuos A1, A2, A3 y A4, construya “a mano” una Jerarquía Binaria usando la agregación del Salto Máximo y del Promedio, dibuje el dendograma en ambos casos.
+```{r}
+D <- matrix(c(0, 5, 2, 3,
+              5, 0, 1, 7,
+              2, 1, 0, 6,
+              3, 7, 6, 0), nrow=4, byrow=TRUE)
+
+rownames(D) <- colnames(D) <- c("A1", "A2", "A3", "A4")
+
+distancia <- as.dist(D)
+
+
+salto.maximo <- hclust(distancia, method = "complete")
+
+salto.promedio <- hclust(distancia, method = "average")
+
+par(mfrow=c(1,2))
+plot(salto.maximo, main="Dendrograma - Método Máximo")
+plot(salto.promedio, main="Dendrograma - Método Promedio")
+
+```
+
