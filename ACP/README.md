@@ -1,0 +1,1 @@
+Este análisis aborda el uso del Análisis en Componentes Principales (ACP), centrándose en su aplicación, interpretación y algoritmos para la reducción de dimensionalidad. Se incluye la implementación práctica del ACP utilizando R para transformar y analizar datos de manera efectiva.
