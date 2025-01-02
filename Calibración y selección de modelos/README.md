@@ -8,8 +8,8 @@
     
 - Comparación de todos los métodos predictivos:
 
- - Se realizaron 6 experimentos para cada uno de los siguientes métodos
- - SVM: Utilizando los kernels calibrados previamente.
- - KNN: Aplicando los parámetros óptimos obtenidos en ejercicios anteriores.
- - Árboles de decisión, Bosques Aleatorios, Potenciación, Extreme Gradient Boosting (XGBoost), y Redes Neuronales.
- - Se graficaron los resultados para comparar el desempeño de todos los métodos y determinar cuál ofrece mejores predicciones.
+  - Se realizaron 6 experimentos para cada uno de los siguientes métodos
+  - SVM: Utilizando los kernels calibrados previamente.
+  - KNN: Aplicando los parámetros óptimos obtenidos en ejercicios anteriores.
+  - Árboles de decisión, Bosques Aleatorios, Potenciación, Extreme Gradient Boosting (XGBoost), y Redes Neuronales.
+  - Se graficaron los resultados para comparar el desempeño de todos los métodos y determinar cuál ofrece mejores predicciones.
