@@ -2,7 +2,7 @@ Se generaron modelos predictivos con Redes Neuronales utilizando el paquete trai
 
 - Usando nnet:
   
--- Se analizó el impacto de las capas ocultas en el desempeño del modelo.
+- - Se analizó el impacto de las capas ocultas en el desempeño del modelo.
 
 - Usando neuralnet:
 
