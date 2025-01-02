@@ -1,0 +1,426 @@
+---
+title: "Tarea 9"
+author: "Aslie Cárdenas Sandoval"
+date: "2024-10-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(traineR)
+library(caret)
+library(xgboost)
+library(knitr)
+```
+
+<h2 style="color:#FF1493;">Ejercicio 1</h2>
+Esta pregunta utiliza los datos (tumores.csv). Se trata de un conjunto de datos de características del tumor cerebral que incluye cinco variables de primer orden y ocho de textura y cuatro parámetros de evaluación de la calidad con el nivel objetivo. Las variables son: Media, Varianza, Desviación estándar, Asimetría, Kurtosis, Contraste, Energía, ASM (segundo momento angular), Entropía, Homogeneidad, Disimilitud, Correlación, Grosor, PSNR (Pico de la relación señal-ruido), SSIM (Índice de Similitud Estructurada), MSE (Mean Square Error), DC (Coeficiente de Dados) y la variable a predecir tipo (1 = Tumor, 0 = No-Tumor).
+
+<h3 style="color:steelblue;">Ejercicio 1.1</h4>
+Cargue la tabla de datos tumores.csv en R y genere en R usando la función createDataPartition(...) del paquete caret la tabla de testing con una 25 % de los datos y con el resto de los datos genere una tabla de aprendizaje.
+```{r}
+datos.tumores <- read.csv("./DatosTarea9/tumores_V2.csv", header = TRUE, sep = ",", dec = '.', stringsAsFactors = TRUE, row.names = 1)
+datos.tumores$tipo <- as.factor(datos.tumores$tipo)
+dim(datos.tumores)
+
+set.seed(123) 
+muestra <- createDataPartition(y = datos.tumores$tipo, p = 0.75, list = FALSE)
+
+taprendizaje <- datos.tumores[muestra, ]
+ttesting <- datos.tumores[-muestra, ]
+
+nrow(taprendizaje)
+nrow(ttesting)
+
+prediction.variable.balance(datos.tumores, "tipo")
+```
+<br>
+<h3 style="color:steelblue;">Ejercicio 1.2</h4>
+Con el paquete traineR, usando Bosques Aleatorios con 500 árboles, el Método de Potenciación con iter = 500 y XGBoosting con nrounds = 500 genere modelos predictivos para la tabla de aprendizaje.
+```{r}
+modelo.rf <- train.randomForest(tipo~., data = taprendizaje, importance = T, ntree = 500)
+importance.plot(modelo.rf)
+
+modelo.ada <- train.adabag(tipo~., data = taprendizaje, iter = 500)
+importance.plot(modelo.ada)
+
+
+modelo.xgb <- train.xgboost(tipo~., data = taprendizaje, nrounds = 500, verbose = FALSE)
+importance.plot(modelo.xgb)
+```
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 1.2</h4>
+Usando la función indices.general(...) vista en clase para la tabla de testing calcule la matriz de confusión, la precisión global, el error global y la precisión en cada una de las categorías de la variable a predecir. Construya una tabla para los índices anteriores
+que permita comparar los resultados de Bosques Aleatorios, Método de Potenciación y XGBoosting con respecto a los métodos generados en las tareas anteriores ¿Cuál método es mejor?
+```{r}
+#bosques aleatorios
+prediccion.rf <- predict(modelo.rf, ttesting, type="class")
+mc.rf <- confusion.matrix(ttesting, prediccion.rf)
+indices.rf <- general.indexes(mc = mc.rf)
+
+#ada
+prediccion.ada <- predict(modelo.ada, ttesting, type="class")
+mc.ada <- confusion.matrix(ttesting, prediccion.ada)
+indices.ada <- general.indexes(mc = mc.ada)
+
+#xgb
+prediccion.xgb <- predict(modelo.xgb, ttesting, type="class")
+mc.xgb <- confusion.matrix(ttesting, prediccion.xgb)
+indices.xgb <- general.indexes(mc = mc.xgb)
+
+indices.rf
+indices.ada
+indices.xgb
+
+#arbol
+modelo.arbol <- train.rpart(tipo~., data=taprendizaje, minsplit = 2)
+prediccion.arbol <- predict(modelo.arbol, ttesting, type="class")
+mc.arbol <- confusion.matrix(ttesting, prediccion.arbol)
+indices.arbol <- general.indexes(mc = mc.arbol)
+
+#knn
+kmax <- floor(sqrt(nrow(taprendizaje)))
+modelo.knn <- train.knn(tipo ~ ., data = taprendizaje, kmax = kmax)
+modelo.knn
+prediccion.knn <- predict(modelo.knn, ttesting)
+mc.knn <- confusion.matrix(ttesting, prediccion.knn)
+indices.knn <- general.indexes(mc = mc.knn)
+
+#svm
+modelo.svm <- train.svm(tipo ~ ., data = taprendizaje)
+prediccion.svm <- predict(modelo.svm, ttesting)
+mc.svm <- confusion.matrix(ttesting, prediccion.svm)
+indices.svm <- general.indexes(mc = mc.svm)
+
+#extraccion metricas
+precision.rf <- indices.rf$overall.accuracy
+error.rf <- indices.rf$overall.error
+category.accuracy.rf <- indices.rf$category.accuracy
+
+precision.ada <- indices.ada$overall.accuracy
+error.ada <- indices.ada$overall.error
+category.accuracy.ada <- indices.ada$category.accuracy
+
+precision.xgb <- indices.xgb$overall.accuracy
+error.xgb <- indices.xgb$overall.error
+category.accuracy.xgb <- indices.xgb$category.accuracy
+
+precision.arbol <- indices.arbol$overall.accuracy
+error.arbol <- indices.arbol$overall.error
+category.accuracy.arbol <- indices.arbol$category.accuracy
+
+precision.knn <- indices.knn$overall.accuracy
+error.knn <- indices.knn$overall.error
+category.accuracy.knn <- indices.knn$category.accuracy
+
+precision.svm <- indices.svm$overall.accuracy
+error.svm <- indices.svm$overall.error
+category.accuracy.svm <- indices.svm$category.accuracy
+
+
+comparacion <- data.frame(
+  Método = c("Bosques Aleatorios", "Potenciación", "XGBoost", "Árbol de decisión", "KNN", "SVM"),
+  `Overall Accuracy` = c(precision.rf, precision.ada, precision.xgb, precision.arbol, precision.knn, precision.svm),
+  `Overall Error` = c(error.rf, error.ada, error.xgb, error.arbol, error.knn, error.svm),
+  `Category Accuracy 0` = c(category.accuracy.rf[1], category.accuracy.ada[1], category.accuracy.xgb[1], category.accuracy.arbol[1], category.accuracy.knn[1], category.accuracy.svm[1]),
+  `Category Accuracy 1` = c(category.accuracy.rf[2], category.accuracy.ada[2], category.accuracy.xgb[2], category.accuracy.arbol[2], category.accuracy.knn[2], category.accuracy.svm[2])
+)
+
+tabla <- kable(comparacion, 
+                format = "markdown", 
+                caption = "Comparación de Modelos: Bosques Aleatorios, Potenciación, XGBoost, Árbol de Decisión, KNN y SVM",
+                align = "c",
+                row.names = FALSE)
+
+tabla
+
+
+```
+Los mejores modelos son Bosques Aleatorios y Potenciación. Ambos tienen una precisión del 100% y ningún error. 
+
+
+<h2 style="color:#FF1493;">Ejercicio 2</h2>
+Esta pregunta utiliza los datos sobre la conocida historia y tragedia del Titanic, usando los datos titanicV2020.csv de los pasajeros se trata de predecir la supervivencia o no de un pasajero.
+La tabla contiene 12 variables y 1309 observaciones, las variables son:
+
+- PassegerId: El código de identificación del pasajero (valor único).
+- Survived: Variable a predecir, 1 (el pasajero sobrevivió) 0 (el pasajero no sobrevivió).
+- Pclass: En que clase viajaba el pasajero (1 = primera, 2 = segunda , 3 = tercera).
+- Name: Nombre del pasajero (valor único).
+- Sex: Sexo del pasajero.
+- Age: Edad del pasajero.
+- SibSp: Cantidad de hermanos o cónyuges a bordo del Titanic.
+- Parch: Cantidad de padres o hijos a bordo del Titanic.
+- Ticket: Número de tiquete (valor único).
+- Fare: Tarifa del pasajero.
+- Cabin: Número de cabina (valor único).
+- Embarked: Puerto donde embarco el pasajero (C = Cherbourg, Q = Queenstown, S = Southampton).
+
+<h3 style="color:steelblue;">Ejercicio 2.1</h4>
+Cargue la tabla de datos titanicV2020.csv, asegúrese de re-codificar las variables cualitativas y de ignorar variables que no se deben usar.
+```{r}
+titanic <- read.csv("./DatosTarea9/titanicV2020.csv", header = TRUE, sep = ",", dec = '.', stringsAsFactors = TRUE, row.names = 1)
+titanic$Survived <- factor(titanic$Survived)
+titanic$Pclass <- factor(titanic$Pclass, ordered = TRUE)
+
+titanic <- titanic[, !names(titanic) %in% c("Name", "Ticket", "Cabin")]
+titanic <- na.omit(titanic)
+str(titanic)
+
+prediction.variable.balance(titanic, "Survived")
+
+```
+
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 2.2</h4>
+Usando el comando sample de R genere al azar una tabla aprendizaje con un 80 % de los datos y con el resto de los datos genere una tabla de aprendizaje.
+```{r}
+set.seed(123)
+n <- nrow(titanic)
+muestra <- sample(1:n, size = floor(n * 0.80))
+aprendizaje.titanic <- titanic[muestra, ]
+testing.titanic <- titanic[-muestra, ]
+
+testing.titanic$Sex <- factor(testing.titanic$Sex, levels = levels(aprendizaje.titanic$Sex))
+testing.titanic$Embarked <- factor(testing.titanic$Embarked, levels = levels(aprendizaje.titanic$Embarked))
+```
+
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 2.3</h4>
+Con el paquete traineR, usando Bosques Aleatorios con 600 árboles, el Método de Potenciación con iter = 600 y XGBoosting con nrounds = 600 genere modelos predictivos para la tabla de aprendizaje.
+```{r}
+modelo.rf.titanic <- train.randomForest(Survived~., data = aprendizaje.titanic, importance = T, ntree = 600)
+importance.plot(modelo.rf.titanic)
+
+modelo.ada.titanic <- train.adabag(Survived~., data = aprendizaje.titanic, iter = 600)
+importance.plot(modelo.ada.titanic)
+
+modelo.xgb.titanic <- train.xgboost(Survived~., data = aprendizaje.titanic, nrounds = 600, verbose = FALSE)
+importance.plot(modelo.xgb.titanic)
+```
+
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 2.4</h4>
+Usando la función indices.general(...) vista en clase para la tabla de testing calcule la matriz de confusión, la precisión global, el error global y la precisión en cada una de las categorías de la variable a predecir. Construya una tabla para los índices anteriores que permita comparar los resultados de Bosques Aleatorios, Método de Potenciación y XGBoosting con respecto a los métodos generados en las tareas anteriores ¿Cuál método es mejor?
+```{r}
+#bosques aleatorios
+prediccion.rf.titanic <- predict(modelo.rf.titanic, testing.titanic, type="class")
+mc.rf.titanic <- confusion.matrix(testing.titanic, prediccion.rf.titanic)
+indices.rf.titanic <- general.indexes(mc = mc.rf.titanic)
+
+#ada
+prediccion.ada.titanic <- predict(modelo.ada.titanic, testing.titanic, type="class")
+mc.ada.titanic <- confusion.matrix(testing.titanic, prediccion.ada.titanic)
+indices.ada.titanic <- general.indexes(mc = mc.ada.titanic)
+
+#xgb
+prediccion.xgb.titanic <- predict(modelo.xgb.titanic, testing.titanic, type="class")
+mc.xgb.titanic <- confusion.matrix(testing.titanic, prediccion.xgb.titanic)
+indices.xgb.titanic <- general.indexes(mc = mc.xgb.titanic)
+
+indices.rf.titanic
+indices.ada.titanic
+indices.xgb.titanic
+
+#arbol
+modelo.arbol.titanic <- train.rpart(Survived~., data=aprendizaje.titanic, minsplit = 2)
+prediccion.arbol.titanic <- predict(modelo.arbol.titanic, testing.titanic, type="class")
+mc.arbol.titanic <- confusion.matrix(testing.titanic, prediccion.arbol.titanic)
+indices.arbol.titanic <- general.indexes(mc = mc.arbol.titanic)
+
+#knn
+kmax <- floor(sqrt(nrow(aprendizaje.titanic)))
+modelo.knn.titanic <- train.knn(Survived ~ ., data = aprendizaje.titanic, kmax = kmax)
+prediccion.knn.titanic <- predict(modelo.knn.titanic, testing.titanic)
+mc.knn.titanic <- confusion.matrix(testing.titanic, prediccion.knn.titanic)
+indices.knn.titanic <- general.indexes(mc = mc.knn.titanic)
+
+#svm
+modelo.svm.titanic <- train.svm(Survived ~ ., data = aprendizaje.titanic)
+prediccion.svm.titanic <- predict(modelo.svm.titanic, testing.titanic)
+mc.svm.titanic <- confusion.matrix(testing.titanic, prediccion.svm.titanic)
+indices.svm.titanic <- general.indexes(mc = mc.svm.titanic)
+
+#extraccion metricas
+precision.rf.titanic <- indices.rf.titanic$overall.accuracy
+error.rf.titanic <- indices.rf.titanic$overall.error
+category.accuracy.rf.titanic <- indices.rf.titanic$category.accuracy
+
+precision.ada.titanic <- indices.ada.titanic$overall.accuracy
+error.ada.titanic <- indices.ada.titanic$overall.error
+category.accuracy.ada.titanic <- indices.ada.titanic$category.accuracy
+
+precision.xgb.titanic <- indices.xgb.titanic$overall.accuracy
+error.xgb.titanic <- indices.xgb.titanic$overall.error
+category.accuracy.xgb.titanic <- indices.xgb.titanic$category.accuracy
+
+precision.arbol.titanic <- indices.arbol.titanic$overall.accuracy
+error.arbol.titanic <- indices.arbol.titanic$overall.error
+category.accuracy.arbol.titanic <- indices.arbol.titanic$category.accuracy
+
+precision.knn.titanic <- indices.knn.titanic$overall.accuracy
+error.knn.titanic <- indices.knn.titanic$overall.error
+category.accuracy.knn.titanic <- indices.knn.titanic$category.accuracy
+
+precision.svm.titanic <- indices.svm.titanic$overall.accuracy
+error.svm.titanic <- indices.svm.titanic$overall.error
+category.accuracy.svm.titanic <- indices.svm.titanic$category.accuracy
+
+
+comparacion.titanic <- data.frame(
+  Método = c("Bosques Aleatorios", "Potenciación", "XGBoost", "Árbol de decisión", "KNN", "SVM"),
+  `Overall Accuracy` = c(precision.rf.titanic, precision.ada.titanic, precision.xgb.titanic, precision.arbol.titanic, precision.knn.titanic, precision.svm.titanic),
+  `Overall Error` = c(error.rf.titanic, error.ada.titanic, error.xgb.titanic, error.arbol.titanic, error.knn.titanic, error.svm.titanic),
+  `Category Accuracy 0` = c(category.accuracy.rf.titanic[1], category.accuracy.ada.titanic[1], category.accuracy.xgb.titanic[1], category.accuracy.arbol.titanic[1], category.accuracy.knn.titanic[1], category.accuracy.svm.titanic[1]),
+  `Category Accuracy 1` = c(category.accuracy.rf.titanic[2], category.accuracy.ada.titanic[2], category.accuracy.xgb.titanic[2], category.accuracy.arbol.titanic[2], category.accuracy.knn.titanic[2], category.accuracy.svm.titanic[2])
+)
+
+tabla.titanic <- kable(comparacion.titanic, 
+                format = "markdown", 
+                caption = "Comparación de Modelos: Bosques Aleatorios, Potenciación, XGBoost, Árbol de Decisión, KNN y SVM",
+                align = "c",
+                row.names = FALSE)
+
+tabla.titanic
+```
+El mejor modelo en general es el árbol de decisión, ya que tiene la mayor precisión y el menor error global. Además, su precisión en la clase 0 es la más alta. Los bosques aleatorios tienen resultados similares al árbol de decisión.
+
+<h2 style="color:#FF1493;">Ejercicio 3</h2>
+En este ejercicio vamos a predecir números escritos a mano (Hand Written Digit Recognition), la tabla de de datos está en el archivo ZipData 2020.csv.
+
+
+<h3 style="color:steelblue;">Ejercicio 3.1</h4>
+Cargue la tabla de datos ZipData 2020.csv en R.
+```{r}
+datos.numeros <- read.csv("./DatosTarea9/ZipData_2020.csv", header = TRUE, sep = ";", dec = '.', stringsAsFactors = TRUE)
+prediction.variable.balance(datos.numeros, "Numero")
+```
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 3.2</h4>
+Con el paquete traineR, usando Bosques Aleatorios y XGBoosting genere un modelos predictivos y los parámetros que usted considere más conveniente para generar un modelo predictivo para la tabla ZipData 2020.csv usando el 80% de los datos para la tabla aprendizaje y un 20% para la tabla testing, luego calcule para los datos de testing la matriz de confusión, la precisión global y la precisión para cada una de las categorías. ¿Son buenos los resultados? Explique.
+```{r cache=TRUE}
+muestra.numeros <- createDataPartition(y = datos.numeros$Numero, p = 0.8, list = F)
+taprendizaje.num <- datos.numeros[muestra.numeros, ]
+ttesting.num <- datos.numeros[-muestra.numeros, ]
+
+modelo.rf.numeros <- train.randomForest(Numero~., data = taprendizaje.num, importance = T, ntree = 300)
+
+modelo.ada.numeros <- train.adabag(Numero~., data = taprendizaje.num, iter = 300)
+
+modelo.xgb.numeros <- train.xgboost(Numero~., data = taprendizaje.num, nrounds = 300, verbose = FALSE)
+
+#bosques aleatorios
+prediccion.rf.numeros <- predict(modelo.rf.numeros, ttesting.num, type="class")
+mc.rf.numeros <- confusion.matrix(ttesting.num, prediccion.rf.numeros)
+indices.rf.numeros <- general.indexes(mc = mc.rf.numeros)
+
+#ada
+prediccion.ada.numeros <- predict(modelo.ada.numeros, ttesting.num, type="class")
+mc.ada.numeros <- confusion.matrix(ttesting.num, prediccion.ada.numeros)
+indices.ada.numeros <- general.indexes(mc = mc.ada.numeros)
+
+#xgb
+prediccion.xgb.numeros <- predict(modelo.xgb.numeros, ttesting.num, type="class")
+mc.xgb.numeros <- confusion.matrix(ttesting.num, prediccion.xgb.numeros)
+indices.xgb.numeros <- general.indexes(mc = mc.xgb.numeros)
+
+indices.rf.numeros
+indices.ada.numeros
+indices.xgb.numeros
+```
+Los resultados son muy buenos en el caso de árboles aleatorios y XGBoost, ya que una exactitud superior al 95% es muy buena en problemas de clasificación multiclase como este. El modelo logra distinguir bien entre las diferentes clases y mantiene un bajo nivel de error global. 
+
+- El modelo árboles aleatorios tiene un rendimiento excelente, con una tasa de error mínima. La matriz de confusión muestra que este modelo logra clasificar correctamente la mayoría de las categorías. Por ejemplo:
+  - Categoría "cero": 308 correctamente clasificados, 2 incorrectos.
+  - Categoría "uno": 251 correctamente clasificados, 2 incorrectos.
+
+
+- El modelo AdaBoost tiene un rendimiento significativamente inferior en comparación con árboles aleatorios. La matriz de confusión muestra que AdaBoost comete más errores en casi todas las categorías.
+  - Categoría "cinco": 101 correctamente clasificados, 35 incorrectos.
+  - Categoría "tres": 130 correctamente clasificados, 42 incorrectos.
+
+
+- El modelo XGBoost es también un modelo excelente para este problema. Tiene un rendimiento casi idéntico al de árboles aleatorios. La matriz de confusión muestra un rendimiento similar al de árboles aleatorios, con algunos errores en categorías específicas.
+  - Categoría "cero": 305 correctamente clasificados, 3 incorrectos.
+  - Categoría "uno": 252 correctamente clasificados, 1 incorrecto.
+
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 3.3</h4>
+Compare los resultados con los obtenidos en las tareas anteriores.
+```{r}
+modelo.arbol.numero <- train.rpart(Numero ~ ., data = taprendizaje.num, minsplit = 2)
+prediccion.arbol.numero <- predict(modelo.arbol.numero, ttesting.num, type = "class")
+mc.arbol.numeros <- confusion.matrix(ttesting.num, prediccion.arbol.numero)
+indices.arbol.numeros <- general.indexes(mc = mc.arbol.numeros)
+
+kmax <- floor(sqrt(nrow(taprendizaje.num)))
+modelo.knn.numeros <- train.knn(Numero~., data = taprendizaje.num, kmax = kmax)
+prediccion.knn.numeros <- predict(modelo.knn.numeros, ttesting.num)
+mc.knn.numeros <- confusion.matrix(ttesting.num, prediccion.knn.numeros)
+indice.knn.numeros <- general.indexes(mc = mc.knn.numeros)
+
+
+modelo.svm.numeros <- train.svm(Numero ~ ., data = taprendizaje.num)
+prediccion.svm.numeros <- predict(modelo.svm.numeros, ttesting.num)
+mc.svm.numeros <- confusion.matrix(ttesting.num, prediccion.svm.numeros)
+indices.svm.numeros <- general.indexes(mc = mc.svm.numeros)
+
+
+precision.rf.numeros <- indices.rf.numeros$overall.accuracy
+error.rf.numeros <- indices.rf.numeros$overall.error
+category.accuracy.rf.numeros <- indices.rf.numeros$category.accuracy
+
+precision.ada.numeros <- indices.ada.numeros$overall.accuracy
+error.ada.numeros <- indices.ada.numeros$overall.error
+category.accuracy.ada.numeros <- indices.ada.numeros$category.accuracy
+
+precision.xgb.numeros <- indices.xgb.numeros$overall.accuracy
+error.xgb.numeros <- indices.xgb.numeros$overall.error
+category.accuracy.xgb.numeros <- indices.xgb.numeros$category.accuracy
+
+precision.arbol.numeros <- indices.arbol.numeros$overall.accuracy
+error.arbol.numeros <- indices.arbol.numeros$overall.error
+category.accuracy.arbol.numeros <- indices.arbol.numeros$category.accuracy
+
+precision.knn.numeros <- indice.knn.numeros$overall.accuracy
+error.knn.numeros <- indice.knn.numeros$overall.error
+category.accuracy.knn.numeros <- indice.knn.numeros$category.accuracy
+
+precision.svm.numeros <- indices.svm.numeros$overall.accuracy
+error.svm.numeros <- indices.svm.numeros$overall.error
+category.accuracy.svm.numeros <- indices.svm.numeros$category.accuracy
+
+indices.arbol.numeros
+indice.knn.numeros
+indices.svm.numeros
+
+comparacion.numeros <- data.frame(
+  Método = c("Bosques Aleatorios", "Potenciación", "XGBoost", "Árbol de decisión", "KNN", "SVM"),
+  `Overall Accuracy` = c(precision.rf.numeros, precision.ada.numeros, precision.xgb.numeros, precision.arbol.numeros, precision.knn.numeros, precision.svm.numeros),
+  `Overall Error` = c(error.rf.numeros, error.ada.numeros, error.xgb.numeros, error.arbol.numeros, error.knn.numeros, error.svm.numeros)
+  
+)
+
+
+comparacion.numeros <- kable(comparacion.numeros, 
+                format = "markdown", 
+                caption = "Comparación de Modelos: Bosques Aleatorios, Potenciación, XGBoost, Árbol de Decisión, KNN y SVM",
+                align = "c",
+                row.names = FALSE)
+
+comparacion.numeros
+```
+
+-  SVM, Bosques Aleatorios y XGBoost muestran un rendimiento sobresaliente, con precisiones superiores al 96%. KNN también tiene un buen desempeño con más del 95% de precisión. La Potenciación y el Árbol de decisión muestran un rendimiento inferior en comparación, especialmente el Árbol de decisión con una precisión de solo 75.94%.
+- SVM tiene excelente rendimiento en todas las categorías, con la mayoría por encima del 95%.
+- Bosques Aleatorios tienen rendimiento muy consistente en todas las categorías, similar al SVM
+
