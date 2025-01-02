@@ -1,0 +1,999 @@
+---
+title: "Tarea 11"
+author: "Aslie Cárdenas Sandoval"
+date: "2024-10-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(caret)
+library(traineR)
+```
+
+
+<h2 style="color:#FF1493;">Ejercicio 1</h2>
+En este ejercicio usaremos la tabla de datos abandono_clientes.csv, que contiene los detalles de los clientes de un banco. La tabla contiene 11 columnas (variables), las cuales se explican a continuación:
+
+- CreditScore: Indica el puntaje de crédito.
+- Geography: País al que pertenece.
+- Gender: Género del empleado.
+- Age: Edad del empleado.
+- Tenure: El tiempo del vínculo con la empresa.
+- Balance: La cantidad que les queda.
+- NumOfProducts: Los productos que posee.
+- HasCrCard: Tienen tarjeta de crédito o no.
+- IsActiveMember: Es un miembro activo o no.
+- EstimatedSalary: Salario estimado.
+- Exited: Indica si el cliente se queda o se va.
+
+<h3 style="color:steelblue;">Ejercicio 1.1</h3>
+Cargue la tabla de datos abandono_clientes.csv en R, ejecute un na.omit(...) para eliminar las filas con NA, str(...), summary(...) y un dim(...), verifique la correcta lectura de los datos.
+```{r}
+datos.clientes <- read.csv("./abandono_clientes.csv", header = TRUE, sep = ",", dec = '.', stringsAsFactors = TRUE)
+datos.clientes <- (na.omit(datos.clientes))
+
+str(datos.clientes)
+summary(datos.clientes)
+dim(datos.clientes)
+```
+```{r}
+prediction.variable.balance(datos.clientes, "Exited")
+```
+
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 1.2</h3>
+El objetivo de este ejercicio es calibrar el método de SVM para esta tabla de datos. Aquí interesa predecir la variable Exited. Para esto genere 6 experimentos, calibrando el modelo de acuerdo a los cuatro tipos de kernels que permite radial, linear, polynomial y sigmoid. Para medir la calidad del método, grafique la precisión global, la precisión de cada categoría (Si,No) de la variable Exited para las 6 iteraciones (experimentos) de los cuatro kernels ¿Se puede determinar con claridad cuál kernel es el mejor?
+```{r}
+numero.filas <- nrow(datos.clientes)
+cantidad.experimentos <- 6
+
+#acumuladores
+pg.svm.radial <- 0
+pg.svm.linear <- 0
+pg.svm.polymonial <- 0
+pg.svm.sigmoid <- 0
+
+#para guardar pg en cada experomento para el gráfico
+lista.pg.svm.radial <- list()
+lista.pg.svm.linear <- list()
+lista.pg.svm.polymonial <- list()
+lista.pg.svm.sigmoid <- list()
+
+#acumulador categoría si
+si.svm.radial <- 0
+si.svm.linear <- 0
+si.svm.polymonial <- 0
+si.svm.sigmoid <- 0
+
+lista.si.svm.radial <- list()
+lista.si.svm.linear <- list()
+lista.si.svm.polymonial <- list()
+lista.si.svm.sigmoid <- list()
+
+
+#acumulador categoría no
+no.svm.radial <- 0
+no.svm.linear <- 0
+no.svm.polymonial <- 0
+no.svm.sigmoid <- 0
+
+lista.no.svm.radial <- list()
+lista.no.svm.linear <- list()
+lista.no.svm.polymonial <- list()
+lista.no.svm.sigmoid <- list()
+
+for (i in 1:cantidad.experimentos){
+  muestra <- createDataPartition(y=datos.clientes$Exited, p = 0.85, list = F)
+  taprendizaje <- datos.clientes[muestra, ]
+  ttesting <- datos.clientes[-muestra, ]
+  
+  modelo.svm <- train.svm(Exited~., data = taprendizaje, kernel = "radial", probability = FALSE)
+  prediccion.svm <- predict(modelo.svm, ttesting)
+  lista.pg.svm.radial <- append(lista.pg.svm.radial, general.indexes(ttesting,prediccion.svm)$overall.accuracy)
+  pg.svm.radial <- pg.svm.radial +  general.indexes(ttesting,prediccion.svm)$overall.accuracy
+  lista.no.svm.radial <- append(lista.no.svm.radial,general.indexes(ttesting,prediccion.svm)$category.accuracy[1])
+  no.svm.radial <- no.svm.radial + general.indexes(ttesting,prediccion.svm)$category.accuracy[1] 
+  lista.si.svm.radial <- append(lista.si.svm.radial,general.indexes(ttesting,prediccion.svm)$category.accuracy[2])
+  si.svm.radial <- si.svm.radial + general.indexes(ttesting,prediccion.svm)$category.accuracy[2] 
+  
+  modelo.svm <- train.svm(Exited~., data = taprendizaje, kernel = "linear", probability = FALSE)
+  prediccion.svm <- predict(modelo.svm, ttesting)
+  lista.pg.svm.linear <- append(lista.pg.svm.linear, general.indexes(ttesting,prediccion.svm)$overall.accuracy)
+  pg.svm.linear <- pg.svm.linear +  general.indexes(ttesting,prediccion.svm)$overall.accuracy
+  lista.no.svm.linear <- append(lista.no.svm.linear, general.indexes(ttesting,prediccion.svm)$category.accuracy[1])
+  no.svm.linear <- no.svm.linear + general.indexes(ttesting,prediccion.svm)$category.accuracy[1] 
+  lista.si.svm.linear <- append(lista.si.svm.linear, general.indexes(ttesting,prediccion.svm)$category.accuracy[2])
+  si.svm.linear <- si.svm.linear + general.indexes(ttesting,prediccion.svm)$category.accuracy[2] 
+   
+  modelo.svm <- train.svm(Exited~., data = taprendizaje, kernel = "polynomial", probability = FALSE)
+  prediccion.svm <- predict(modelo.svm, ttesting)
+  lista.pg.svm.polymonial <- append(lista.pg.svm.polymonial, general.indexes(ttesting,prediccion.svm)$overall.accuracy)
+  pg.svm.polymonial <- pg.svm.polymonial + general.indexes(ttesting,prediccion.svm)$overall.accuracy
+  lista.no.svm.polymonial <- append(lista.no.svm.polymonial, general.indexes(ttesting,prediccion.svm)$category.accuracy[1])
+  no.svm.polymonial <- no.svm.polymonial + general.indexes(ttesting,prediccion.svm)$category.accuracy[1] 
+  lista.si.svm.polymonial <- append(lista.si.svm.polymonial, general.indexes(ttesting,prediccion.svm)$category.accuracy[2])
+  si.svm.polymonial <- si.svm.polymonial + general.indexes(ttesting,prediccion.svm)$category.accuracy[2] 
+
+  modelo.svm <- train.svm(Exited~., data = taprendizaje, kernel = "sigmoid", probability = FALSE)
+  prediccion.svm <- predict(modelo.svm, ttesting)
+  lista.pg.svm.sigmoid <- append(lista.pg.svm.sigmoid, general.indexes(ttesting,prediccion.svm)$overall.accuracy)
+  pg.svm.sigmoid <- pg.svm.sigmoid + general.indexes(ttesting,prediccion.svm)$overall.accuracy
+  lista.no.svm.sigmoid <- append(lista.no.svm.sigmoid, general.indexes(ttesting,prediccion.svm)$category.accuracy[1])
+  no.svm.sigmoid <- no.svm.sigmoid + general.indexes(ttesting,prediccion.svm)$category.accuracy[1] 
+  lista.si.svm.sigmoid <- append(lista.si.svm.sigmoid, general.indexes(ttesting,prediccion.svm)$category.accuracy[2])
+  si.svm.sigmoid <- si.svm.sigmoid + general.indexes(ttesting,prediccion.svm)$category.accuracy[2] 
+}
+
+pg.svm.radial <- pg.svm.radial/cantidad.experimentos
+pg.svm.linear <- pg.svm.linear/cantidad.experimentos
+pg.svm.polymonial <- pg.svm.polymonial/cantidad.experimentos
+pg.svm.sigmoid <- pg.svm.sigmoid/cantidad.experimentos
+
+no.svm.radial <- no.svm.radial/cantidad.experimentos
+no.svm.linear <- no.svm.linear/cantidad.experimentos
+no.svm.polymonial <- no.svm.polymonial/cantidad.experimentos
+no.svm.sigmoid <- no.svm.sigmoid/cantidad.experimentos
+
+si.svm.radial <- si.svm.radial/cantidad.experimentos
+si.svm.linear <- si.svm.linear/cantidad.experimentos
+si.svm.polymonial <- si.svm.polymonial/cantidad.experimentos
+si.svm.sigmoid <- si.svm.sigmoid/cantidad.experimentos
+
+```
+
+```{r}
+paleta1 <- c("#5cacc4","#8cd19d", "#cee879", "#fcb653", "#ff5254")
+paleta2 <- c("#96b5ad", "#ffd2cb", "#f4a1b5", "#e86786", "#281916")
+```
+
+
+```{r}
+# Lista de errores para el gráfico de barras
+lista.pg <- list(
+  RADIAL = pg.svm.radial, 
+  LINEAR = pg.svm.linear,
+  POLINOMIAL = pg.svm.polymonial,
+  SIGMOID = pg.svm.sigmoid
+)
+
+# Convierte la lista a un data frame
+df.pg <- data.frame(
+  metodo = names(lista.pg),
+  precision = unlist(lista.pg)
+)
+
+# orden deseado de las barras en el eje x
+df.pg$metodo <- factor(df.pg$metodo, levels = names(lista.pg))
+colores <- paleta1[1:length(df.pg$metodo)]
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.pg <- cbind(lista.pg.svm.radial,
+                  lista.pg.svm.linear,
+                  lista.pg.svm.polymonial,
+                  lista.pg.svm.sigmoid)
+
+# gráfico de líneas
+matplot(matriz.pg, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Precisión Global",
+        main = "Gráfico de Líneas para las Precisiones Globales de SVM")
+
+legend("topright", legend = c("Radial", "Lineal", "Polynomial", "Sigmoid"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+```
+
+```{r}
+ggplot(df.pg, aes(x = metodo, y = precision, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = paste0(round(precision * 100, 1), "%")), 
+            vjust = -0.5) +  # Ajusta la posición del texto sobre las barras
+  scale_fill_manual(values = colores) +
+  labs(title = "Precisión Global",
+       x = "Método",
+       y = "Precisión Global (%)") +  # Incluye el porcentaje en la etiqueta del eje
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
+```
+
+```{r}
+lista.no <- list(
+  RADIAL = no.svm.radial, 
+  LINEAR = no.svm.linear,
+  POLINOMIAL = no.svm.polymonial,
+  SIGMOID = no.svm.sigmoid
+)
+
+df.no <- data.frame(
+  metodo = names(lista.no),
+  no = unlist(lista.no)
+)
+
+df.no$metodo <- factor(df.no$metodo, levels = names(lista.no))
+
+colores <- paleta1[1:length(df.no$metodo)]
+
+matriz.no <- cbind(lista.no.svm.radial,
+                  lista.no.svm.linear,
+                  lista.no.svm.polymonial,
+                  lista.no.svm.sigmoid)
+
+matplot(matriz.no, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Detección del NO",
+        main = "Gráfico de Líneas para la detección del NO de SVM")
+
+legend("topright", legend = c("Radial", "Lineal", "Polynomial", "Sigmoid"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+
+
+ggplot(df.no, aes(x = metodo, y = no, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = paste0(round(no * 100, 1), "%")), 
+            vjust = -0.5) +  
+  scale_fill_manual(values = colores) +
+  labs(title = "Detección del NO",
+       x = "Método",
+       y = "Detección del NO (%)") +  
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
+```
+
+```{r}
+lista.si <- list(
+  RADIAL = si.svm.radial, 
+  LINEAR = si.svm.linear,
+  POLINOMIAL = si.svm.polymonial,
+  SIGMOID = si.svm.sigmoid
+)
+
+df.si <- data.frame(
+  metodo = names(lista.si),
+  si = unlist(lista.si)
+)
+
+df.si$metodo <- factor(df.si$metodo, levels = names(lista.si))
+
+colores <- paleta1[1:length(df.si$metodo)]
+
+matriz.si <- cbind(lista.si.svm.radial,
+                  lista.si.svm.linear,
+                  lista.si.svm.polymonial,
+                  lista.si.svm.sigmoid)
+
+matplot(matriz.si, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Detección del SI",
+        main = "Gráfico de Líneas para la detección del SÍ de SVM")
+
+legend("topright", legend = c("Radial", "Lineal", "Polynomial", "Sigmoid"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+
+
+ggplot(df.si, aes(x = metodo, y = si, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = paste0(round(si * 100, 1), "%")), 
+            vjust = -0.5) +  
+  scale_fill_manual(values = colores) +
+  labs(title = "Detección del SÍ",
+       x = "Método",
+       y = "Detección del SI (%)") +  
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
+```
+
+- Se puede determinar que el mejor kernel está entre el radial y el polynomial. Ambos tienen las predicciones más altas en precisión global y en las categorías. Aunque los resultados en la categoría sí no son óptimos para ninguno de los kernels, el radial muestra un rendimiento superior en este aspecto.
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 1.3</h3>
+¿Cuál kernel usaría con base en los resultados obtenidos en el ejercicio anterior?
+
+- Con base en los resultados, elegiría el kernel radial, ya que ofrece la mejor precisión global y es el mejor en la categoría sí.
+
+
+
+<h2 style="color:#FF1493;">Ejercicio 2</h2>
+Para esta pregunta usaremos nuevamente los datos abandono_clientes.csv. Con el paquete traineR realice lo siguiente:
+
+<h3 style="color:steelblue;">Ejercicio 2.1</h3>
+El objetivo de este ejercicio es calibrar el método de KNN para esta tabla de datos. Aquí interesa predecir la variable Exited. Para esto genere 6 experimentos calibrando el modelo de acuerdo con todos los tipos de algoritmos que permite train.knn en el parámetro kernel, estos algoritmos son: rectangular, triangular, epanechnikov, biweight, triweight,cos, inv, gaussian y optimal. Para medir la calidad del método, grafique la precisión global, la precisión de cada categoría (Si,No) de la variable Exited en las 6 iteraciones (experimentos) de los diferentes kernels. ¿Se puede determinar con claridad cuál algoritmo es el mejor?
+```{r}
+numero.filas <- nrow(datos.clientes)
+cantidad.experimentos <- 6
+
+pg.knn.rectangular <- 0
+pg.knn.triangular <- 0
+pg.knn.epanechnikov <- 0
+pg.knn.biweight <- 0
+pg.knn.triweight <- 0
+pg.knn.cos <- 0
+pg.knn.inv <- 0
+pg.knn.gaussian <- 0
+pg.knn.optimal <- 0
+
+lista.pg.knn.rectangular <- list()
+lista.pg.knn.triangular <- list()
+lista.pg.knn.epanechnikov <- list()
+lista.pg.knn.biweight <- list()
+lista.pg.knn.triweight <- list()
+lista.pg.knn.cos <- list()
+lista.pg.knn.inv <- list()
+lista.pg.knn.gaussian <- list()
+lista.pg.knn.optimal <- list()
+
+si.knn.rectangular <- 0
+si.knn.triangular <- 0
+si.knn.epanechnikov <- 0
+si.knn.biweight <- 0
+si.knn.triweight <- 0
+si.knn.cos <- 0
+si.knn.inv <- 0
+si.knn.gaussian <- 0
+si.knn.optimal <- 0
+
+lista.si.knn.rectangular <- list()
+lista.si.knn.triangular <- list()
+lista.si.knn.epanechnikov <- list()
+lista.si.knn.biweight <- list()
+lista.si.knn.triweight <- list()
+lista.si.knn.cos <- list()
+lista.si.knn.inv <- list()
+lista.si.knn.gaussian <- list()
+lista.si.knn.optimal <- list()
+
+no.knn.rectangular <- 0
+no.knn.triangular <- 0
+no.knn.epanechnikov <- 0
+no.knn.biweight <- 0
+no.knn.triweight <- 0
+no.knn.cos <- 0
+no.knn.inv <- 0
+no.knn.gaussian <- 0
+no.knn.optimal <- 0
+
+lista.no.knn.rectangular <- list()
+lista.no.knn.triangular <- list()
+lista.no.knn.epanechnikov <- list()
+lista.no.knn.biweight <- list()
+lista.no.knn.triweight <- list()
+lista.no.knn.cos <- list()
+lista.no.knn.inv <- list()
+lista.no.knn.gaussian <- list()
+lista.no.knn.optimal <- list()
+
+for (i in 1:cantidad.experimentos){
+  muestra <- createDataPartition(y=datos.clientes$Exited, p = 0.85, list = F)
+  taprendizaje <- datos.clientes[muestra, ]
+  ttesting <- datos.clientes[-muestra, ]
+  
+  modelo.knn <- train.knn(Exited~., data = taprendizaje, kmax = floor(sqrt(nrow(taprendizaje))), kernel = "rectangular")
+  prediccion.knn <- predict(modelo.knn, ttesting)
+  lista.pg.knn.rectangular <- append(lista.pg.knn.rectangular, general.indexes(ttesting,prediccion.knn)$overall.accuracy)
+  pg.knn.rectangular <- pg.knn.rectangular +  general.indexes(ttesting,prediccion.knn)$overall.accuracy
+  lista.no.knn.rectangular <- append(lista.no.knn.rectangular,general.indexes(ttesting,prediccion.knn)$category.accuracy[1])
+  no.knn.rectangular <- no.knn.rectangular + general.indexes(ttesting,prediccion.knn)$category.accuracy[1] 
+  lista.si.knn.rectangular <- append(lista.si.knn.rectangular,general.indexes(ttesting,prediccion.knn)$category.accuracy[2])
+  si.knn.rectangular <- si.knn.rectangular + general.indexes(ttesting,prediccion.knn)$category.accuracy[2] 
+  
+  modelo.knn <- train.knn(Exited~., data = taprendizaje, kmax = floor(sqrt(nrow(taprendizaje))), kernel = "triangular")
+  prediccion.knn <- predict(modelo.knn, ttesting)
+  lista.pg.knn.triangular <- append(lista.pg.knn.triangular, general.indexes(ttesting,prediccion.knn)$overall.accuracy)
+  pg.knn.triangular <- pg.knn.triangular +  general.indexes(ttesting,prediccion.knn)$overall.accuracy
+  lista.no.knn.triangular <- append(lista.no.knn.triangular, general.indexes(ttesting,prediccion.knn)$category.accuracy[1])
+  no.knn.triangular <- no.knn.triangular + general.indexes(ttesting,prediccion.knn)$category.accuracy[1] 
+  lista.si.knn.triangular <- append(lista.si.knn.triangular, general.indexes(ttesting,prediccion.knn)$category.accuracy[2])
+  si.knn.triangular <- si.knn.triangular + general.indexes(ttesting,prediccion.knn)$category.accuracy[2] 
+   
+  modelo.knn <- train.knn(Exited~., data = taprendizaje, kmax = floor(sqrt(nrow(taprendizaje))), kernel = "epanechnikov")
+  prediccion.knn <- predict(modelo.knn, ttesting)
+  lista.pg.knn.epanechnikov <- append(lista.pg.knn.epanechnikov, general.indexes(ttesting,prediccion.knn)$overall.accuracy)
+  pg.knn.epanechnikov <- pg.knn.epanechnikov + general.indexes(ttesting,prediccion.knn)$overall.accuracy
+  lista.no.knn.epanechnikov <- append(lista.no.knn.epanechnikov, general.indexes(ttesting,prediccion.knn)$category.accuracy[1])
+  no.knn.epanechnikov <- no.knn.epanechnikov + general.indexes(ttesting,prediccion.knn)$category.accuracy[1] 
+  lista.si.knn.epanechnikov <- append(lista.si.knn.epanechnikov, general.indexes(ttesting,prediccion.knn)$category.accuracy[2])
+  si.knn.epanechnikov <- si.knn.epanechnikov + general.indexes(ttesting,prediccion.knn)$category.accuracy[2] 
+
+  modelo.knn <- train.knn(Exited~., data = taprendizaje, kmax = floor(sqrt(nrow(taprendizaje))), kernel = "biweight")
+  prediccion.knn <- predict(modelo.knn, ttesting)
+  lista.pg.knn.biweight <- append(lista.pg.knn.biweight, general.indexes(ttesting,prediccion.knn)$overall.accuracy)
+  pg.knn.biweight <- pg.knn.biweight + general.indexes(ttesting,prediccion.knn)$overall.accuracy
+  lista.no.knn.biweight <- append(lista.no.knn.biweight, general.indexes(ttesting,prediccion.knn)$category.accuracy[1])
+  no.knn.biweight <- no.knn.biweight + general.indexes(ttesting,prediccion.knn)$category.accuracy[1] 
+  lista.si.knn.biweight <- append(lista.si.knn.biweight, general.indexes(ttesting,prediccion.knn)$category.accuracy[2])
+  si.knn.biweight <- si.knn.biweight + general.indexes(ttesting,prediccion.knn)$category.accuracy[2] 
+
+  modelo.knn <- train.knn(Exited~., data = taprendizaje, kmax = floor(sqrt(nrow(taprendizaje))), kernel = "triweight")
+  prediccion.knn <- predict(modelo.knn, ttesting)
+  lista.pg.knn.triweight <- append(lista.pg.knn.triweight, general.indexes(ttesting,prediccion.knn)$overall.accuracy)
+  pg.knn.triweight <- pg.knn.triweight + general.indexes(ttesting,prediccion.knn)$overall.accuracy
+  lista.no.knn.triweight <- append(lista.no.knn.triweight, general.indexes(ttesting,prediccion.knn)$category.accuracy[1])
+  no.knn.triweight <- no.knn.triweight + general.indexes(ttesting,prediccion.knn)$category.accuracy[1] 
+  lista.si.knn.triweight <- append(lista.si.knn.triweight, general.indexes(ttesting,prediccion.knn)$category.accuracy[2])
+  si.knn.triweight <- si.knn.triweight + general.indexes(ttesting,prediccion.knn)$category.accuracy[2] 
+
+  modelo.knn <- train.knn(Exited~., data = taprendizaje, kmax = floor(sqrt(nrow(taprendizaje))), kernel = "cos")
+  prediccion.knn <- predict(modelo.knn, ttesting)
+  lista.pg.knn.cos <- append(lista.pg.knn.cos, general.indexes(ttesting,prediccion.knn)$overall.accuracy)
+  pg.knn.cos <- pg.knn.cos + general.indexes(ttesting,prediccion.knn)$overall.accuracy
+  lista.no.knn.cos <- append(lista.no.knn.cos, general.indexes(ttesting,prediccion.knn)$category.accuracy[1])
+  no.knn.cos <- no.knn.cos + general.indexes(ttesting,prediccion.knn)$category.accuracy[1] 
+  lista.si.knn.cos <- append(lista.si.knn.cos, general.indexes(ttesting,prediccion.knn)$category.accuracy[2])
+  si.knn.cos <- si.knn.cos + general.indexes(ttesting,prediccion.knn)$category.accuracy[2] 
+
+  modelo.knn <- train.knn(Exited~., data = taprendizaje, kmax = floor(sqrt(nrow(taprendizaje))), kernel = "inv")
+  prediccion.knn <- predict(modelo.knn, ttesting)
+  lista.pg.knn.inv <- append(lista.pg.knn.inv, general.indexes(ttesting,prediccion.knn)$overall.accuracy)
+  pg.knn.inv <- pg.knn.inv + general.indexes(ttesting,prediccion.knn)$overall.accuracy
+  lista.no.knn.inv <- append(lista.no.knn.inv, general.indexes(ttesting,prediccion.knn)$category.accuracy[1])
+  no.knn.inv <- no.knn.inv + general.indexes(ttesting,prediccion.knn)$category.accuracy[1] 
+  lista.si.knn.inv <- append(lista.si.knn.inv, general.indexes(ttesting,prediccion.knn)$category.accuracy[2])
+  si.knn.inv <- si.knn.inv + general.indexes(ttesting,prediccion.knn)$category.accuracy[2] 
+
+  modelo.knn <- train.knn(Exited~., data = taprendizaje, kmax = floor(sqrt(nrow(taprendizaje))), kernel = "gaussian")
+  prediccion.knn <- predict(modelo.knn, ttesting)
+  lista.pg.knn.gaussian <- append(lista.pg.knn.gaussian, general.indexes(ttesting,prediccion.knn)$overall.accuracy)
+  pg.knn.gaussian <- pg.knn.gaussian + general.indexes(ttesting,prediccion.knn)$overall.accuracy
+  lista.no.knn.gaussian <- append(lista.no.knn.gaussian, general.indexes(ttesting,prediccion.knn)$category.accuracy[1])
+  no.knn.gaussian <- no.knn.gaussian + general.indexes(ttesting,prediccion.knn)$category.accuracy[1] 
+  lista.si.knn.gaussian <- append(lista.si.knn.gaussian, general.indexes(ttesting,prediccion.knn)$category.accuracy[2])
+  si.knn.gaussian <- si.knn.gaussian + general.indexes(ttesting,prediccion.knn)$category.accuracy[2] 
+
+  modelo.knn <- train.knn(Exited~., data = taprendizaje, kmax = floor(sqrt(nrow(taprendizaje))), kernel = "optimal")
+  prediccion.knn <- predict(modelo.knn, ttesting)
+  lista.pg.knn.optimal <- append(lista.pg.knn.optimal, general.indexes(ttesting,prediccion.knn)$overall.accuracy)
+  pg.knn.optimal <- pg.knn.optimal + general.indexes(ttesting,prediccion.knn)$overall.accuracy
+  lista.no.knn.optimal <- append(lista.no.knn.optimal, general.indexes(ttesting,prediccion.knn)$category.accuracy[1])
+  no.knn.optimal <- no.knn.optimal + general.indexes(ttesting,prediccion.knn)$category.accuracy[1] 
+  lista.si.knn.optimal <- append(lista.si.knn.optimal, general.indexes(ttesting,prediccion.knn)$category.accuracy[2])
+  si.knn.optimal <- si.knn.optimal + general.indexes(ttesting,prediccion.knn)$category.accuracy[2] 
+}
+
+pg.knn.rectangular <- pg.knn.rectangular/cantidad.experimentos
+pg.knn.triangular <- pg.knn.triangular/cantidad.experimentos
+pg.knn.epanechnikov <- pg.knn.epanechnikov/cantidad.experimentos
+pg.knn.biweight <- pg.knn.biweight/cantidad.experimentos
+pg.knn.triweight <- pg.knn.triweight/cantidad.experimentos
+pg.knn.cos <- pg.knn.cos/cantidad.experimentos
+pg.knn.inv <- pg.knn.inv/cantidad.experimentos
+pg.knn.gaussian <- pg.knn.gaussian/cantidad.experimentos
+pg.knn.optimal <- pg.knn.optimal/cantidad.experimentos
+
+no.knn.rectangular <- no.knn.rectangular/cantidad.experimentos
+no.knn.triangular <- no.knn.triangular/cantidad.experimentos
+no.knn.epanechnikov <- no.knn.epanechnikov/cantidad.experimentos
+no.knn.biweight <- no.knn.biweight/cantidad.experimentos
+no.knn.triweight <- no.knn.triweight/cantidad.experimentos
+no.knn.cos <- no.knn.cos/cantidad.experimentos
+no.knn.inv <- no.knn.inv/cantidad.experimentos
+no.knn.gaussian <- no.knn.gaussian/cantidad.experimentos
+no.knn.optimal <- no.knn.optimal/cantidad.experimentos
+
+si.knn.rectangular <- si.knn.rectangular/cantidad.experimentos
+si.knn.triangular <- si.knn.triangular/cantidad.experimentos
+si.knn.epanechnikov <- si.knn.epanechnikov/cantidad.experimentos
+si.knn.biweight <- si.knn.biweight/cantidad.experimentos
+si.knn.triweight <- si.knn.triweight/cantidad.experimentos
+si.knn.cos <- si.knn.cos/cantidad.experimentos
+si.knn.inv <- si.knn.inv/cantidad.experimentos
+si.knn.gaussian <- si.knn.gaussian/cantidad.experimentos
+si.knn.optimal <- si.knn.optimal/cantidad.experimentos
+
+```
+
+
+```{r}
+paleta3 <- c("#F8F371", "#FDBA8C", "#FFa0A3", "#E888D5", "#B28DF2", 
+                          "#75A6F7", "#5BD2F0", "#4EEEF2", "#54F0C0", "#8CF89F")
+
+
+```
+
+
+```{r}
+lista.pg <- list(
+  RECTANGULAR = pg.knn.rectangular, 
+  TRIANGULAR = pg.knn.triangular,
+  EPANECHNIKOV = pg.knn.epanechnikov,
+  BIWEIGHT = pg.knn.biweight,
+  TRIWEIGHT = pg.knn.triweight,
+  COS = pg.knn.cos,
+  INV = pg.knn.inv,
+  GAUSSIAN = pg.knn.gaussian,
+  OPTIMAL = pg.knn.optimal
+)
+
+df.pg <- data.frame(
+  metodo = names(lista.pg),
+  precision = unlist(lista.pg)
+)
+
+df.pg$metodo <- factor(df.pg$metodo, levels = names(lista.pg))
+
+colores <- paleta3[1:length(df.pg$metodo)]
+
+matriz.pg <- cbind(lista.pg.knn.rectangular,
+                   lista.pg.knn.triangular,
+                   lista.pg.knn.epanechnikov,
+                   lista.pg.knn.biweight,
+                   lista.pg.knn.triweight,
+                   lista.pg.knn.cos,
+                   lista.pg.knn.inv,
+                   lista.pg.knn.gaussian,
+                   lista.pg.knn.optimal)
+
+matplot(matriz.pg, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Precisión Global",
+        main = "Gráfico de Líneas para las Precisiones Globales de KNN")
+
+legend("topright", legend = names(lista.pg),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+
+ggplot(df.pg, aes(x = metodo, y = precision, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = paste0(round(precision * 100, 1), "%")), 
+            vjust = -0.5) +
+  scale_fill_manual(values = colores) +
+  labs(title = "Precisión Global",
+       x = "Método",
+       y = "Precisión Global (%)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+lista.no <- list(
+  RECTANGULAR = no.knn.rectangular, 
+  TRIANGULAR = no.knn.triangular,
+  EPANECHNIKOV = no.knn.epanechnikov,
+  BIWEIGHT = no.knn.biweight,
+  TRIWEIGHT = no.knn.triweight,
+  COS = no.knn.cos,
+  INV = no.knn.inv,
+  GAUSSIAN = no.knn.gaussian,
+  OPTIMAL = no.knn.optimal
+)
+
+df.no <- data.frame(
+  metodo = names(lista.no),
+  no = unlist(lista.no)
+)
+
+df.no$metodo <- factor(df.no$metodo, levels = names(lista.no))
+colores <- paleta3[1:length(df.no$metodo)]
+
+
+matriz.no <- cbind(lista.no.knn.rectangular,
+                   lista.no.knn.triangular,
+                   lista.no.knn.epanechnikov,
+                   lista.no.knn.biweight,
+                   lista.no.knn.triweight,
+                   lista.no.knn.cos,
+                   lista.no.knn.inv,
+                   lista.no.knn.gaussian,
+                   lista.no.knn.optimal)
+
+matplot(matriz.no, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Detección del NO",
+        main = "Gráfico de Líneas para la detección del NO de KNN")
+
+legend("topright", legend = names(lista.no),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+
+ggplot(df.no, aes(x = metodo, y = no, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = paste0(round(no * 100, 1), "%")), 
+            vjust = -0.5) +
+  scale_fill_manual(values = colores) +
+  labs(title = "Detección del NO",
+       x = "Método",
+       y = "Detección del NO (%)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+lista.si <- list(
+  RECTANGULAR = si.knn.rectangular, 
+  TRIANGULAR = si.knn.triangular,
+  EPANECHNIKOV = si.knn.epanechnikov,
+  BIWEIGHT = si.knn.biweight,
+  TRIWEIGHT = si.knn.triweight,
+  COS = si.knn.cos,
+  INV = si.knn.inv,
+  GAUSSIAN = si.knn.gaussian,
+  OPTIMAL = si.knn.optimal
+)
+
+df.si <- data.frame(
+  metodo = names(lista.si),
+  si = unlist(lista.si)
+)
+
+df.si$metodo <- factor(df.si$metodo, levels = names(lista.si))
+colores <- paleta3[1:length(df.si$metodo)]
+
+
+matriz.si <- cbind(lista.si.knn.rectangular,
+                   lista.si.knn.triangular,
+                   lista.si.knn.epanechnikov,
+                   lista.si.knn.biweight,
+                   lista.si.knn.triweight,
+                   lista.si.knn.cos,
+                   lista.si.knn.inv,
+                   lista.si.knn.gaussian,
+                   lista.si.knn.optimal)
+
+matplot(matriz.si, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Detección del SÍ",
+        main = "Gráfico de Líneas para la detección del SÍ de KNN")
+
+legend("topright", legend = names(lista.si),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+
+ggplot(df.si, aes(x = metodo, y = si, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = paste0(round(si * 100, 1), "%")), 
+            vjust = -0.5) +
+  scale_fill_manual(values = colores) +
+  labs(title = "Detección del SÍ",
+       x = "Método",
+       y = "Detección del SÍ (%)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+- No se puede determinar con claridad cuál es el mejor algoritmo, ya que todos muestran resultados muy similares, con diferencias mínimas entre ellos. En términos de precisión global, el algoritmo triweight es ligeramente superior, aunque la diferencia es casi insignificante. Para la detección del No, el mejor rendimiento lo presenta el algoritmo gaussian, con un desempeño ligeramente mejor, mientras que en la detección del Sí, el triweight es el mejor. Aun así, las diferencias son mínimas
+<br>
+<h3 style="color:steelblue;">Ejercicio 2.2</h3>
+¿Cuál algoritmo usaría con base en la información obtenida en el ejercicio anterior?
+ 
+- Usaría el triweight ya que detecta mejor la categoría sí. 
+
+
+<h2 style="color:#FF1493;">Ejercicio 3</h2>
+Utilizando de nuevo los datos abandono_clientes.csv. Con el paquete traineR realice lo siguiente:
+
+<h3 style="color:steelblue;">Ejercicio 3.1</h3>
+El objetivo de este ejercicio es comparar todos los métodos predictivos vistos en el curso con esta tabla de datos. Aquí interesa predecir la variable Exited, para esto genere 6 experimentos para los métodos SVM, KNN, Árboles, Bosques, Potenciación, eXtreme Gradient Boosting y Redes Neuronales. Para KNN y SVM use los parámetros obtenidos en las calibraciones realizadas en los ejercicios anteriores. Para medir la calidad del método, grafique la precisión global, la precisión de cada categoría (Si,No) de la variable Exited en las 6 iteraciones (experimetos) de los diferentes kernels. ¿Se puede determinar con claridad cuál método es el mejor?
+
+```{r}
+numero.filas          <- nrow(datos.clientes)
+cantidad.experimentos <- 6
+
+# Acumuladores de la Precisión Global para el gráfico de barras
+pg.svm <- 0
+pg.knn <- 0
+pg.arbol <- 0
+pg.bosque <- 0    
+pg.potenciacion <- 0
+pg.xgboost <- 0 
+pg.red <- 0    
+
+# Listas para guardar las Precisiones Globales en cada experimento para el gráfico de líneas
+lista.pg.svm <- list()
+lista.pg.knn <- list()
+lista.pg.arbol <- list()
+lista.pg.bosque <- list()   
+lista.pg.potenciacion <- list()
+lista.pg.xgboost <- list()
+lista.pg.red <- list()   
+
+
+# Acumuladores del NO para el gráfico de barras
+no.svm <- 0
+no.knn <- 0
+no.arbol <- 0
+no.bosque <- 0    
+no.potenciacion <- 0
+no.xgboost <- 0 
+no.red <- 0    
+ 
+ 
+# Listas para guardar lel No en cada experimento para el gráfico de líneas
+lista.no.svm <- list()
+lista.no.knn <- list()
+lista.no.arbol <- list()
+lista.no.bosque <- list()   
+lista.no.potenciacion <- list()
+lista.no.xgboost <- list()
+lista.no.red <- list()   
+
+# Acumuladores del Sí para el gráfico de barras
+si.svm <- 0
+si.knn <- 0
+si.arbol <- 0
+si.bosque <- 0    
+si.potenciacion <- 0
+si.xgboost <- 0 
+si.red <- 0    
+
+# Listas para guardar el Sí en cada experimento para el gráfico de líneas
+lista.si.svm <- list()
+lista.si.knn <- list()
+lista.si.arbol <- list()
+lista.si.bosque <- list()   
+lista.si.potenciacion <- list()
+lista.si.xgboost <- list()
+lista.si.red <- list()
+
+
+
+for (i in 1:cantidad.experimentos) {
+  muestra      <- createDataPartition(y = datos.clientes$Exited, p = 0.85, list = F)
+  taprendizaje <- datos.clientes[muestra, ]
+  ttesting     <- datos.clientes[-muestra, ]  
+    
+  modelo          <- train.svm(Exited ~ ., data = taprendizaje, kernel = "radial", probability = FALSE)
+  prediccion      <- predict(modelo, ttesting)
+  lista.pg.svm <- append(lista.pg.svm,general.indexes(ttesting,prediccion)$overall.accuracy)
+  pg.svm <- pg.svm + general.indexes(ttesting,prediccion)$overall.accuracy
+  lista.no.svm <- append(lista.no.svm,general.indexes(ttesting,prediccion)$category.accuracy[1])
+  no.svm <- no.svm + general.indexes(ttesting,prediccion)$category.accuracy[1] 
+  lista.si.svm <- append(lista.si.svm,general.indexes(ttesting,prediccion)$category.accuracy[2])
+  si.svm <- si.svm + general.indexes(ttesting,prediccion)$category.accuracy[2]
+
+  modelo          <- train.knn(Exited ~ ., data = taprendizaje, kmax = floor(sqrt(nrow(taprendizaje))), kernel = "triweight")
+  prediccion      <- predict(modelo, ttesting)
+  lista.pg.knn <- append(lista.pg.knn,general.indexes(ttesting,prediccion)$overall.accuracy)
+  pg.knn <- pg.knn + general.indexes(ttesting,prediccion)$overall.accuracy
+  lista.no.knn <- append(lista.no.knn,general.indexes(ttesting,prediccion)$category.accuracy[1])
+  no.knn <- no.knn + general.indexes(ttesting,prediccion)$category.accuracy[1] 
+  lista.si.knn <- append(lista.si.knn,general.indexes(ttesting,prediccion)$category.accuracy[2])
+  si.knn <- si.knn + general.indexes(ttesting,prediccion)$category.accuracy[2]
+  
+  modelo          <- train.rpart(Exited ~ ., data = taprendizaje)
+  prediccion      <- predict(modelo, ttesting)
+  lista.pg.arbol <- append(lista.pg.arbol,general.indexes(ttesting,prediccion)$overall.accuracy)
+  pg.arbol <- pg.arbol + general.indexes(ttesting,prediccion)$overall.accuracy
+  lista.no.arbol <- append(lista.no.arbol,general.indexes(ttesting,prediccion)$category.accuracy[1])
+  no.arbol <- no.arbol + general.indexes(ttesting,prediccion)$category.accuracy[1]  
+  lista.si.arbol <- append(lista.si.arbol,general.indexes(ttesting,prediccion)$category.accuracy[2])
+  si.arbol <- si.arbol + general.indexes(ttesting,prediccion)$category.accuracy[2]
+ 
+  modelo          <- train.randomForest(Exited ~ ., data = taprendizaje)
+  prediccion      <- predict(modelo, ttesting)
+  lista.pg.bosque <- append(lista.pg.bosque,general.indexes(ttesting,prediccion)$overall.accuracy)
+  pg.bosque <- pg.bosque + general.indexes(ttesting,prediccion)$overall.accuracy
+  lista.no.bosque <- append(lista.no.bosque,general.indexes(ttesting,prediccion)$category.accuracy[1])
+  no.bosque <- no.bosque + general.indexes(ttesting,prediccion)$category.accuracy[1] 
+  lista.si.bosque <- append(lista.si.bosque,general.indexes(ttesting,prediccion)$category.accuracy[2])
+  si.bosque <- si.bosque + general.indexes(ttesting,prediccion)$category.accuracy[2]
+  
+  modelo          <- train.ada(Exited ~ ., data = taprendizaje, iter = 20, nu = 1, type = "discrete")
+  prediccion      <- predict(modelo, ttesting)
+  lista.pg.potenciacion <- append(lista.pg.potenciacion,general.indexes(ttesting,prediccion)$overall.accuracy)
+  pg.potenciacion <- pg.potenciacion +general.indexes(ttesting,prediccion)$overall.accuracy
+  lista.no.potenciacion <- append(lista.no.potenciacion,general.indexes(ttesting,prediccion)$category.accuracy[1])
+  no.potenciacion <- no.potenciacion + general.indexes(ttesting,prediccion)$category.accuracy[1]
+  lista.si.potenciacion <- append(lista.si.potenciacion,general.indexes(ttesting,prediccion)$category.accuracy[2])
+  si.potenciacion <- si.potenciacion + general.indexes(ttesting,prediccion)$category.accuracy[2]
+  
+  modelo          <- train.xgboost(Exited ~ ., data = taprendizaje, nrounds = 79,
+                                   print_every_n = 10, maximize = F , eval_metric = "error",verbose = 0)
+  prediccion      <- predict(modelo, ttesting)
+  lista.pg.xgboost <- append(lista.pg.xgboost,general.indexes(ttesting,prediccion)$overall.accuracy)
+  pg.xgboost <- pg.xgboost + general.indexes(ttesting,prediccion)$overall.accuracy
+  lista.no.xgboost <- append(lista.no.xgboost,general.indexes(ttesting,prediccion)$category.accuracy[1])
+  no.xgboost <- no.xgboost +general.indexes(ttesting,prediccion)$category.accuracy[1]
+  lista.si.xgboost <- append(lista.si.xgboost,general.indexes(ttesting,prediccion)$category.accuracy[2])
+  si.xgboost <- si.xgboost + general.indexes(ttesting,prediccion)$category.accuracy[2]
+  
+  modelo          <- train.nnet(Exited ~ ., data = taprendizaje, size = 100, MaxNWts = 5000, 
+                                rang = 0.01, decay = 5e-4, maxit = 45, trace = FALSE)
+  prediccion      <- predict(modelo, ttesting)
+  lista.pg.red    <- append(lista.pg.red,general.indexes(ttesting,prediccion)$overall.accuracy)
+  pg.red    <- pg.red + general.indexes(ttesting,prediccion)$overall.accuracy
+  lista.no.red    <- append(lista.no.red,general.indexes(ttesting,prediccion)$category.accuracy[1])
+  no.red    <- no.red + general.indexes(ttesting,prediccion)$category.accuracy[1] 
+  lista.si.red    <- append(lista.si.red,general.indexes(ttesting,prediccion)$category.accuracy[2])
+  si.red    <- si.red + general.indexes(ttesting,prediccion)$category.accuracy[2]
+ 
+   
+
+}
+pg.svm <- pg.svm/cantidad.experimentos
+pg.knn <- pg.knn/cantidad.experimentos
+pg.arbol <- pg.arbol/cantidad.experimentos
+pg.bosque <- pg.bosque/cantidad.experimentos
+pg.potenciacion <- pg.potenciacion/cantidad.experimentos
+pg.xgboost <- pg.xgboost/cantidad.experimentos
+pg.red <- pg.red/cantidad.experimentos
+
+
+no.svm <- no.svm/cantidad.experimentos
+no.knn <- no.knn/cantidad.experimentos
+no.arbol <- no.arbol/cantidad.experimentos
+no.bosque <- no.bosque/cantidad.experimentos
+no.potenciacion <- no.potenciacion/cantidad.experimentos
+no.xgboost <- no.xgboost/cantidad.experimentos
+no.red <- no.red/cantidad.experimentos
+
+si.svm <- si.svm/cantidad.experimentos
+si.knn <- si.knn/cantidad.experimentos
+si.arbol <- si.arbol/cantidad.experimentos
+si.bosque <- si.bosque/cantidad.experimentos
+si.potenciacion <- si.potenciacion/cantidad.experimentos
+si.xgboost <- si.xgboost/cantidad.experimentos
+si.red <- si.red/cantidad.experimentos
+
+```
+
+```{r}
+# Lista de precisiones globales para el gráfico de barras
+lista.pg <- list(
+  SVM = pg.svm, 
+  KNN = pg.knn,
+  ARBOL = pg.arbol,
+  BOSQUES = pg.bosque,
+  POTENCIACIÓN = pg.potenciacion,  
+  XGBOOSTING = pg.xgboost,
+  RED = pg.red
+)
+
+# Convierte la lista a un data frame
+df.pg <- data.frame(
+  metodo = names(lista.pg),
+  precision = unlist(lista.pg)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.pg$metodo <- factor(df.pg$metodo, levels = names(lista.pg))
+
+colores <- paleta3[1:length(df.pg$metodo)]
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.pg <- cbind(lista.pg.svm,
+                        lista.pg.knn,
+                        lista.pg.arbol,
+                        lista.pg.bosque,
+                        lista.pg.potenciacion,
+                        lista.pg.xgboost,
+                        lista.pg.red)
+
+# Crea el gráfico de líneas
+matplot(matriz.pg, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Precisión Global",
+        main = "Gráfico de Líneas para la Precisión Global")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("SVM", "KNN", "ÁRBOL", "BOSQUES", "POTENCIACIÓN", "XGBOOSTING", "RED"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+```
+
+```{r}
+# Crea un gráfico de barras con ggplot2
+ggplot(df.pg, aes(x = metodo, y = precision, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = paste0(round(precision * 100, 1), "%")), 
+            vjust = -0.5) +  # Ajusta la posición del texto sobre las barras
+  scale_fill_manual(values = colores) +
+  labs(title = "Precisión Global",
+       x = "Método",
+       y = "Precisión Global (%)") +  # Incluye el porcentaje en la etiqueta del eje
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+# Lista del NO para el gráfico de barras
+lista.no <- list(
+  SVM = no.svm, 
+  KNN = no.knn,
+  ARBOL = no.arbol,
+  BOSQUES = no.bosque,
+  POTENCIACIÓN = no.potenciacion,  
+  XGBOOSTING = no.xgboost,
+  RED = no.red
+)
+
+# Convierte la lista a un data frame
+df.no <- data.frame(
+  metodo = names(lista.no),
+  no = unlist(lista.no)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.no$metodo <- factor(df.no$metodo, levels = names(lista.no))
+
+colores <- paleta3[1:length(df.no$metodo)]
+
+
+# Crear una matriz con las listas para el gráfico de líneas 
+matriz.no <- cbind(lista.no.svm,
+                        lista.no.knn,
+                        lista.no.arbol,
+                        lista.no.bosque,
+                        lista.no.potenciacion,
+                        lista.no.xgboost,
+                        lista.no.red)
+
+# Crea el gráfico de líneas
+matplot(matriz.no, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Detección del NO",
+        main = "Gráfico de Líneas para la detección del NO")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("SVM", "KNN", "ÁRBOL", "BOSQUES", "POTENCIACIÓN", "XGBOOSTING", "RED"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+
+# Crea un gráfico de barras con ggplot2
+ggplot(df.no, aes(x = metodo, y = no, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = paste0(round(no * 100, 1), "%")), 
+            vjust = -0.5) +  # Ajusta la posición del texto sobre las barras
+  scale_fill_manual(values = colores) +
+  labs(title = "Detección del NO",
+       x = "Método",
+       y = "Detección del NO (%)") +  # Incluye el porcentaje en la etiqueta del eje
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+# Lista del SÍ para el gráfico de barras
+lista.si <- list(
+  SVM = si.svm, 
+  KNN = si.knn,
+  ARBOL = si.arbol,
+  BOSQUES = si.bosque,
+  POTENCIACIÓN = si.potenciacion,  
+  XGBOOSTING = si.xgboost,
+  RED = si.red
+)
+
+# Convierte la lista a un data frame
+df.si <- data.frame(
+  metodo = names(lista.si),
+  si = unlist(lista.si)
+)
+
+# Define el orden deseado de las barras en el eje x
+df.si$metodo <- factor(df.si$metodo, levels = names(lista.si))
+
+# Utiliza la misma paleta de colores
+colores <- paleta3[1:length(df.si$metodo)]
+
+# Crear una matriz con las listas para el gráfico de líneas
+matriz.si <- cbind(lista.si.svm,
+                   lista.si.knn,
+                   lista.si.arbol,
+                   lista.si.bosque,
+                   lista.si.potenciacion,
+                   lista.si.xgboost,
+                   lista.si.red)
+
+# Crea el gráfico de líneas para la detección del SÍ
+matplot(matriz.si, type = "l", col = colores, lty = 1, lwd = 2,
+        xlab = "Iteración", ylab = "Detección del SÍ",
+        main = "Gráfico de Líneas para la detección del SÍ")
+
+# Agregar una leyenda al gráfico de líneas
+legend("topright", legend = c("SVM", "KNN", "ÁRBOL", "BOSQUES", "POTENCIACIÓN", "XGBOOSTING", "RED"),
+       col = colores, lty = 1, lwd = 2, cex = 0.8)
+
+# Crea un gráfico de barras con ggplot2 para la detección del SÍ
+ggplot(df.si, aes(x = metodo, y = si, fill = metodo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = paste0(round(si * 100, 1), "%")), 
+            vjust = -0.5) +  # Ajusta la posición del texto sobre las barras
+  scale_fill_manual(values = colores) +
+  labs(title = "Detección del SÍ",
+       x = "Método",
+       y = "Detección del SÍ (%)") +  # Incluye el porcentaje en la etiqueta del eje
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+- En términos de precisión global, todos los modelos presentan resultados muy similares. Sin embargo, los bosques aleatorios se destacan ligeramente como el mejor.
+
+- En cuanto a la detección del No, la mayoría de los modelos lo predicen con bastante precisión. Los mejores en este aspecto son la red neuronal y el SVM.
+
+- Por otro lado, para la detección del Sí, los mejores resultados provienen de la potenciación y el XGBoosting.
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 3.2</h3>
+¿Cuál método usaría con base en la información obtenida en el ejercicio anterior?
+
+- Dado que todos los modelos tienen una precisión global muy similar, optaría por el que detecta mejor los casos de Sí. En este caso, la potenciación y el XGBoosting son la mejor opción, ya que sobresalen en la detección de estos casos, igualmente los bosques están muy similares, la diferencia es mínima.
