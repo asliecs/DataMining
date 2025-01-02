@@ -1,0 +1,1047 @@
+---
+title: "Tarea 10"
+author: "Aslie Cárdenas Sandoval"
+date: "2024-10-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(traineR)
+library(caret)
+library(knitr)
+library(xgboost)
+```
+
+
+<h2 style="color:#FF1493;">Ejercicio 1</h2>
+Esta pregunta utiliza los datos (tumores.csv). Se trata de un conjunto de datos de características del tumor cerebral que incluye cinco variables de primer orden y ocho de textura y cuatro parámetros de evaluación de la calidad con el nivel objetivo. Las variables son: Media, Varianza, Desviación estándar, Asimetría, Kurtosis, Contraste, Energía, ASM (segundo momento angular), Entropía, Homogeneidad, Disimilitud, Correlación, Grosor, PSNR (Pico de la relación señal-ruido), SSIM (Índice de Similitud Estructurada), MSE (Mean Square Error), DC (Coeficiente de Dados) y la variable a predecir tipo (1 = Tumor, 0 = No-Tumor).
+
+<h3 style="color:steelblue;">Ejercicio 1.1</h4>
+Cargue la tabla de datos tumores.csv en R y genere en R usando la función createDataPartition(...) del paquete caret la tabla de testing con una 25 % de los datos y con el resto de los datos genere una tabla de aprendizaje. Investigue cómo se hace la separación en training-testing con el paquete caret ¿Cuál es la ventaja respecto a usar sample?
+```{r}
+datos.tumores <- read.csv("./DatosTarea10/tumores_V2.csv", header = TRUE, sep = ",", dec = '.', stringsAsFactors = TRUE, row.names = 1)
+datos.tumores$tipo <- as.factor(datos.tumores$tipo)
+dim(datos.tumores)
+
+set.seed(123) 
+muestra <- createDataPartition(y = datos.tumores$tipo, p = 0.75, list = FALSE)
+
+taprendizaje <- datos.tumores[muestra, ]
+ttesting <- datos.tumores[-muestra, ]
+
+nrow(taprendizaje)
+nrow(ttesting)
+
+prediction.variable.balance(datos.tumores, "tipo")
+```
+
+La ventaja de createDataPartition sobre sample es que mantiene la misma proporción de clases (como en este caso, los tipos de tumores) en las tablas de entrenamiento y prueba. Esto es ventajoso cuando se trabaja con datos desbalanceados. Esto evita que una de las tablas tenga más observaciones de un tipo y la otra de otro, lo que podría afectar el modelo. Además, es más fácil de usar y está diseñado específicamente para dividir datos en machine learning.
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 1.2</h4>
+Usando Redes Neuronales (nnet) con el paquete traineR genere un modelo predictivo para la tabla de aprendizaje usando 2, 4 y 20 capas ocultas ¿Qué pasa en cada uno de los casos? Lo anterior con un número máximo de iteraciones igual a 1000 (recuerde adaptar el número máximo de pesos MaxNWts.
+```{r}
+
+modelo.2.capas <- train.nnet(tipo~., data = taprendizaje,
+                       size = 2, 
+                       rang    = 0.1,
+                       decay   = 5e-4,
+                       maxit   = 1000,
+                       MaxNWts = 10000,
+                       trace   = FALSE)
+
+prediccion.2.capas <- predict(modelo.2.capas, ttesting, type = "class")
+mc.2.capas <- confusion.matrix(ttesting, prediccion.2.capas)
+print("Modelo con 2 capas")
+indices.2.capas <- general.indexes(mc = mc.2.capas)
+indices.2.capas
+
+
+modelo.4.capas <- train.nnet(tipo~., data = taprendizaje,
+                       size = 4, 
+                       rang    = 0.1,
+                       decay   = 5e-4,
+                       maxit   = 1000,
+                       MaxNWts = 10000,
+                       trace   = FALSE)
+
+prediccion.4.capas <- predict(modelo.4.capas, ttesting, type = "class")
+mc.4.capas <- confusion.matrix(ttesting, prediccion.4.capas)
+print("Modelo con 4 capas")
+indices.4.capas <- general.indexes(mc = mc.4.capas)
+indices.4.capas
+
+modelo.20.capas <- train.nnet(tipo~., data = taprendizaje,
+                       size = 20, 
+                       rang    = 0.1,
+                       decay   = 5e-4,
+                       maxit   = 1000,
+                       MaxNWts = 10000,
+                       trace   = FALSE)
+
+prediccion.20.capas <- predict(modelo.20.capas, ttesting, type = "class")
+mc.20.capas <- confusion.matrix(ttesting, prediccion.20.capas)
+print("Modelo con 20 capas")
+indices.20.capas <- general.indexes(mc = mc.20.capas)
+indices.20.capas
+
+```
+
+- El modelo con 2 capas no identificó correctamente ningún caso que era No. Todas las veces que el modelo predijo Sí, estuvo correcto.
+- El modelo con 4 capas distingue bien entre ambas clases, con un error mínimo del 0.63%
+- El modelo con 20 capas predice bien en general, pero comete algunos errores al identificar la clase No.
+- El modelo de 4 capas es el mejor, con la mayor precisión global y un buen equilibrio en ambas clases.
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 1.3</h4>
+Repita los ejercicios anteriores usando neuralnet desde el paquete traineR con 3 capas ocultas, es decir, use hidden = c(k1, k2, k3) (determine usted el número adecuado para k1, k2 y para k3).
+```{r}
+hidden.layers <- c(10, 5, 3)  
+
+modelo.neu <- train.neuralnet(
+  formula = tipo~ .,
+  data = taprendizaje,
+  hidden = hidden.layers,
+  linear.output = FALSE,
+  threshold = 0.1,
+  stepmax = 1e+06
+)
+
+prediccion.neu <- predict(modelo.neu, ttesting, type="class")
+mc.neu <- confusion.matrix(ttesting, prediccion.neu)
+indices.neu <- general.indexes(mc = mc.neu)
+indices.neu
+
+```
+
+
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 1.4</h4>
+4. Compare todos los resultados de los ejercicios anteriores. ¿Cuál es mejor?
+```{r}
+modelo.rf <- train.randomForest(tipo~., data = taprendizaje, importance = T, ntree = 500)
+
+modelo.ada <- train.adabag(tipo~., data = taprendizaje, iter = 500)
+
+modelo.xgb <- train.xgboost(tipo~., data = taprendizaje, nrounds = 500, verbose = FALSE)
+
+#bosques aleatorios
+prediccion.rf <- predict(modelo.rf, ttesting, type="class")
+mc.rf <- confusion.matrix(ttesting, prediccion.rf)
+indices.rf <- general.indexes(mc = mc.rf)
+
+#ada
+prediccion.ada <- predict(modelo.ada, ttesting, type="class")
+mc.ada <- confusion.matrix(ttesting, prediccion.ada)
+indices.ada <- general.indexes(mc = mc.ada)
+
+#xgb
+prediccion.xgb <- predict(modelo.xgb, ttesting, type="class")
+mc.xgb <- confusion.matrix(ttesting, prediccion.xgb)
+indices.xgb <- general.indexes(mc = mc.xgb)
+
+#arbol
+modelo.arbol <- train.rpart(tipo~., data=taprendizaje, minsplit = 2)
+prediccion.arbol <- predict(modelo.arbol, ttesting, type="class")
+mc.arbol <- confusion.matrix(ttesting, prediccion.arbol)
+indices.arbol <- general.indexes(mc = mc.arbol)
+
+#knn
+kmax <- floor(sqrt(nrow(taprendizaje)))
+modelo.knn <- train.knn(tipo ~ ., data = taprendizaje, kmax = kmax)
+modelo.knn
+prediccion.knn <- predict(modelo.knn, ttesting)
+mc.knn <- confusion.matrix(ttesting, prediccion.knn)
+indices.knn <- general.indexes(mc = mc.knn)
+
+#svm
+modelo.svm <- train.svm(tipo ~ ., data = taprendizaje)
+prediccion.svm <- predict(modelo.svm, ttesting)
+mc.svm <- confusion.matrix(ttesting, prediccion.svm)
+indices.svm <- general.indexes(mc = mc.svm)
+
+#extraccion metricas
+precision.2 <- indices.2.capas$overall.accuracy
+error.2 <- indices.2.capas$overall.error
+category.accuracy.2 <- indices.2.capas$category.accuracy
+
+precision.4 <- indices.4.capas$overall.accuracy
+error.4 <- indices.4.capas$overall.error
+category.accuracy.4 <- indices.4.capas$category.accuracy
+
+precision.20 <- indices.20.capas$overall.accuracy
+error.20 <- indices.20.capas$overall.error
+category.accuracy.20 <- indices.20.capas$category.accuracy
+
+precision.neu <- indices.neu$overall.accuracy
+error.neu <- indices.neu$overall.error
+category.accuracy.neu <- indices.neu$category.accuracy
+
+precision.rf <- indices.rf$overall.accuracy
+error.rf <- indices.rf$overall.error
+category.accuracy.rf <- indices.rf$category.accuracy
+
+precision.ada <- indices.ada$overall.accuracy
+error.ada <- indices.ada$overall.error
+category.accuracy.ada <- indices.ada$category.accuracy
+
+precision.xgb <- indices.xgb$overall.accuracy
+error.xgb <- indices.xgb$overall.error
+category.accuracy.xgb <- indices.xgb$category.accuracy
+
+precision.arbol <- indices.arbol$overall.accuracy
+error.arbol <- indices.arbol$overall.error
+category.accuracy.arbol <- indices.arbol$category.accuracy
+
+precision.knn <- indices.knn$overall.accuracy
+error.knn <- indices.knn$overall.error
+category.accuracy.knn <- indices.knn$category.accuracy
+
+precision.svm <- indices.svm$overall.accuracy
+error.svm <- indices.svm$overall.error
+category.accuracy.svm <- indices.svm$category.accuracy
+
+
+comparacion <- data.frame(
+  Método = c("RN 2 Capas", "RN 4 Capas", "RN 20 Capas", "RN Neuralnet", "Bosques Aleatorios", "Potenciación", "XGBoost", "Árbol de decisión", "KNN", "SVM"),
+  `Overall Accuracy` = c(precision.2, precision.4, precision.20, precision.neu, precision.rf, precision.ada, precision.xgb, precision.arbol, precision.knn, precision.svm),
+  `Overall Error` = c(error.2, error.4, error.20, error.neu, error.rf, error.ada, error.xgb, error.arbol, error.knn, error.svm),
+  `Category Accuracy 0` = c(category.accuracy.2[1], category.accuracy.4[1], category.accuracy.20[1], category.accuracy.neu[1],  category.accuracy.rf[1], category.accuracy.ada[1], category.accuracy.xgb[1], category.accuracy.arbol[1], category.accuracy.knn[1], category.accuracy.svm[1]),
+  `Category Accuracy 1` = c(category.accuracy.2[2], category.accuracy.4[2], category.accuracy.20[2], category.accuracy.neu[2], category.accuracy.rf[2], category.accuracy.ada[2], category.accuracy.xgb[2], category.accuracy.arbol[2], category.accuracy.knn[2], category.accuracy.svm[2])
+)
+
+tabla <- kable(comparacion, 
+                format = "markdown", 
+                caption = "Comparación de Modelos: Redes Neuronales, Bosques Aleatorios, Potenciación, XGBoost, Árbol de Decisión, KNN y SVM",
+                align = "c",
+                row.names = FALSE)
+
+tabla
+
+```
+
+Los bosques aleatorios y potenciación siguen siendo los mejores.
+
+
+<h2 style="color:#FF1493;">Ejercicio 2</h2>
+Esta pregunta utiliza los datos sobre la conocida historia y tragedia del Titanic, usando los datos titanicV2020.csv de los pasajeros se trata de predecir la supervivencia o no de un pasajero.
+La tabla contiene 12 variables y 1309 observaciones, las variables son:
+
+- PassegerId: El código de identificación del pasajero (valor único).
+- Survived: Variable a predecir, 1 (el pasajero sobrevivió) 0 (el pasajero no sobrevivió).
+- Pclass: En que clase viajaba el pasajero (1 = primera, 2 = segunda , 3 = tercera).
+- Name: Nombre del pasajero (valor único).
+- Sex: Sexo del pasajero.
+- Age: Edad del pasajero.
+- SibSp: Cantidad de hermanos o cónyuges a bordo del Titanic.
+- Parch: Cantidad de padres o hijos a bordo del Titanic.
+- Ticket: Número de tiquete (valor único).
+- Fare: Tarifa del pasajero.
+- Cabin: Número de cabina (valor único).
+- Embarked: Puerto donde embarco el pasajero (C = Cherbourg, Q = Queenstown, S = Southampton).
+
+<h3 style="color:steelblue;">Ejercicio 2.1</h4>
+Cargue la tabla de datos titanicV2020.csv, asegúrese de re-codificar las variables cualitativas y de ignorar variables que no se deben usar.
+```{r}
+titanic <- read.csv("./DatosTarea10/titanicV2020.csv", header = TRUE, sep = ",", dec = '.', stringsAsFactors = TRUE, row.names = 1)
+titanic$Survived <- factor(titanic$Survived)
+titanic$Pclass <- factor(titanic$Pclass, ordered = TRUE)
+
+titanic <- titanic[, !names(titanic) %in% c("Name", "Ticket", "Cabin")]
+titanic <- na.omit(titanic)
+str(titanic)
+
+prediction.variable.balance(titanic, "Survived")
+```
+
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 2.2</h4>
+Usando Redes Neuronales, con nnet del paquete traineR y con 80 % de los datos para tabla aprendizaje y un 20 % para la tabla testing, genere un modelo predictivo para la tabla de aprendizaje, usando 4, 15 y 20 nodos en la capa oculta ¿Qué pasa en cada uno de los casos? Lo anterior con un número máximo de iteraciones igual a 1000, recuerde adaptar el número máximo de pesos MaxNWts.
+```{r}
+dim(titanic)
+
+set.seed(123) 
+muestra.titanic <- createDataPartition(y = titanic$Survived, p = 0.80, list = FALSE)
+
+taprendizaje.titanic <- titanic[muestra.titanic, ]
+ttesting.titanic <- titanic[-muestra.titanic, ]
+
+nrow(taprendizaje.titanic)
+nrow(ttesting.titanic)
+
+modelot.4.capas <- train.nnet(Survived~., data = taprendizaje.titanic,
+                       size = 4, 
+                       rang    = 0.1,
+                       decay   = 5e-4,
+                       maxit   = 1000,
+                       MaxNWts = 10000,
+                       trace   = FALSE)
+
+predicciont.4.capas <- predict(modelot.4.capas, ttesting.titanic, type = "class")
+mct.4.capas <- confusion.matrix(ttesting.titanic, predicciont.4.capas)
+print("Modelo con 4 capas")
+indicest.4.capas <- general.indexes(mc = mct.4.capas)
+indicest.4.capas
+
+
+modelot.15.capas <- train.nnet(Survived~., data = taprendizaje.titanic,
+                       size = 15, 
+                       rang    = 0.1,
+                       decay   = 5e-4,
+                       maxit   = 1000,
+                       MaxNWts = 10000,
+                       trace   = FALSE)
+
+predicciont.15.capas <- predict(modelot.15.capas, ttesting.titanic, type = "class")
+mct.15.capas <- confusion.matrix(ttesting.titanic, predicciont.15.capas)
+print("Modelo con 15 capas")
+indicest.15.capas <- general.indexes(mc = mct.15.capas)
+indicest.15.capas
+
+modelot.20.capas <- train.nnet(Survived~., data = taprendizaje.titanic,
+                       size = 20, 
+                       rang    = 0.1,
+                       decay   = 5e-4,
+                       maxit   = 1000,
+                       MaxNWts = 10000,
+                       trace   = FALSE)
+
+predicciont.20.capas <- predict(modelot.20.capas, ttesting.titanic, type = "class")
+mct.20.capas <- confusion.matrix(ttesting.titanic, predicciont.20.capas)
+print("Modelo con 20 capas")
+indicest.20.capas <- general.indexes(mc = mct.20.capas)
+indicest.20.capas
+
+```
+- Todos tienen una precisión global parecida, el de 4 capas fue el mejor.
+- El de 4 capas predice mejor la categoría 0.
+- El de 15 y 20 capas predicen mejor la categoría 1.
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 2.3</h4>
+Repita los ejercicios anteriores usando neuralnet del paquete traineR con 4 capas ocultas, es decir, use hidden = c(k1, k2, k3, k4) (determine usted el número adecuado para k1, k2, k3 y para k4). ¿Mejoran los resultados?
+```{r}
+hidden.layers <- c(8, 6, 4, 2)  
+
+modelo.neu.titanic <- train.neuralnet(
+  formula = Survived~ .,
+  data = taprendizaje.titanic,
+  hidden = hidden.layers,
+  linear.output = FALSE,
+  threshold = 0.1,
+  stepmax = 1e+06
+)
+
+predicciont.neu <- predict(modelo.neu.titanic, ttesting.titanic, type="class")
+mct.neu <- confusion.matrix(ttesting.titanic, predicciont.neu)
+indicest.neu <- general.indexes(mc = mct.neu)
+indicest.neu
+```
+
+- El resultado empeoró, tiene una precisión global y por categoría muy baja, y el error es muy alto.
+
+```{r}
+indices.confusion2 <- function(MC) {
+  if (nrow(MC) != ncol(MC)) {
+    stop("La matriz de confusión debe ser cuadrada.")
+  }
+  
+  precision.global <- sum(diag(MC)) / sum(MC)
+  error.global <- 1 - precision.global
+  precision.categoria <- diag(MC) / rowSums(MC)
+  
+  VP <- MC[2,2]  # Verdaderos Positivos
+  FP <- MC[1,2]  # Falsos Positivos
+  FN <- MC[2,1]  # Falsos Negativos
+  VN <- MC[1,1]  # Verdaderos Negativos
+  
+  precision.positiva <- VP / (VP + FN)
+  precision.negativa <- VN / (VN + FP)
+  proporcion.falsos.positivos <- FP / (VN + FP)
+  proporcion.falsos.negativos <- FN / (VP + FN)
+  asertividad.positiva <- VP / (VP + FP)
+  asertividad.negativa <- VN / (VN + FN)
+  
+  res <- list(
+    matriz.confusion = MC,
+    precision.global = precision.global,
+    error.global = error.global,
+    precision.categoria = precision.categoria,
+    precision.positiva = precision.positiva,
+    precision.negativa = precision.negativa,
+    falsos.positivos = proporcion.falsos.positivos,
+    falsos.negativos = proporcion.falsos.negativos,
+    asertividad.positiva = asertividad.positiva,
+    asertividad.negativa = asertividad.negativa
+  )
+  
+  names(res) <- c(
+    "Matriz de Confusión", "Precisión Global", "Error Global",
+    "Precisión por categoría", "Precisión Positiva", "Precisión Negativa",
+    "Falsos Positivos", "Falsos Negativos", "Asertividad Positiva", "Asertividad Negativa"
+  )
+  
+  return(res)
+}
+```
+
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 2.4</h4>
+4. Con la tabla de testing calcule la matriz de confusión, la precisión, la precisión positiva, la precisión negativa, los falsos positivos, los falsos negativos, la acertividad positiva y la acertividad negativa para los modelos anteriores (los que fue posible generar). ¿Cuál es mejor? Compare además los resultados con los obtenidos en la tarea anterior ¿Cuál es mejor?
+```{r}
+modelo.rf <- train.randomForest(Survived~., data = taprendizaje.titanic, importance = T, ntree = 500)
+
+modelo.ada <- train.adabag(Survived~., data = taprendizaje.titanic, iter = 500)
+
+modelo.xgb <- train.xgboost(Survived~., data = taprendizaje.titanic, nrounds = 500, verbose = FALSE)
+
+#bosques aleatorios
+prediccion.rf <- predict(modelo.rf, ttesting.titanic, type="class")
+mc.rf <- confusion.matrix(ttesting.titanic, prediccion.rf)
+indices.rf <- general.indexes(mc = mc.rf)
+
+#ada
+prediccion.ada <- predict(modelo.ada, ttesting.titanic, type="class")
+mc.ada <- confusion.matrix(ttesting.titanic, prediccion.ada)
+indices.ada <- general.indexes(mc = mc.ada)
+
+#xgb
+prediccion.xgb <- predict(modelo.xgb, ttesting.titanic, type="class")
+mc.xgb <- confusion.matrix(ttesting.titanic, prediccion.xgb)
+indices.xgb <- general.indexes(mc = mc.xgb)
+
+#arbol
+modelo.arbol <- train.rpart(Survived~., data=taprendizaje.titanic, minsplit = 2)
+prediccion.arbol <- predict(modelo.arbol, ttesting.titanic, type="class")
+mc.arbol <- confusion.matrix(ttesting.titanic, prediccion.arbol)
+indices.arbol <- general.indexes(mc = mc.arbol)
+
+#knn
+kmax <- floor(sqrt(nrow(taprendizaje.titanic)))
+modelo.knn <- train.knn(Survived ~ ., data = taprendizaje.titanic, kmax = kmax)
+modelo.knn
+prediccion.knn <- predict(modelo.knn, ttesting.titanic)
+mc.knn <- confusion.matrix(ttesting.titanic, prediccion.knn)
+indices.knn <- general.indexes(mc = mc.knn)
+
+#svm
+modelo.svm <- train.svm(Survived ~ ., data = taprendizaje.titanic)
+prediccion.svm <- predict(modelo.svm, ttesting.titanic)
+mc.svm <- confusion.matrix(ttesting.titanic, prediccion.svm)
+indices.svm <- general.indexes(mc = mc.svm)
+
+indicest.4.capas <- indices.confusion2(mct.4.capas)
+indicest.15.capas <- indices.confusion2(mct.15.capas)
+indicest.20.capas <- indices.confusion2(mct.20.capas)
+indicest.neu <- indices.confusion2(mct.neu)
+indices.rf <- indices.confusion2(mc.rf)
+indices.ada <- indices.confusion2(mc.ada)
+indices.xgb <- indices.confusion2(mc.xgb)
+indices.arbol <- indices.confusion2(mc.arbol)
+indices.knn <- indices.confusion2(mc.knn)
+indices.svm <- indices.confusion2(mc.svm)
+
+
+comparacion.indices <- data.frame(
+  Modelo = c("RN 4 Capas", "RN 15 Capas", "RN 20 Capas", "RN Neuralnet", "Bosques Aleatorios", 
+             "Potenciación", "XGBoost", "Árbol de Decisión", "KNN", "SVM"),
+  `Precisión Global` = c(indicest.4.capas$`Precisión Global`, indicest.15.capas$`Precisión Global`,
+                         indicest.20.capas$`Precisión Global`, indicest.neu$`Precisión Global`,
+                         indices.rf$`Precisión Global`, indices.ada$`Precisión Global`,
+                         indices.xgb$`Precisión Global`, indices.arbol$`Precisión Global`,
+                         indices.knn$`Precisión Global`, indices.svm$`Precisión Global`),
+  `Error Global` = c(indicest.4.capas$`Error Global`, indicest.15.capas$`Error Global`, 
+                     indicest.20.capas$`Error Global`, indicest.neu$`Error Global`, 
+                     indices.rf$`Error Global`, indices.ada$`Error Global`, 
+                     indices.xgb$`Error Global`, indices.arbol$`Error Global`, 
+                     indices.knn$`Error Global`, indices.svm$`Error Global`),
+  `Precisión Positiva` = c(indicest.4.capas$`Precisión Positiva`, indicest.15.capas$`Precisión Positiva`,
+                           indicest.20.capas$`Precisión Positiva`, indicest.neu$`Precisión Positiva`,
+                           indices.rf$`Precisión Positiva`, indices.ada$`Precisión Positiva`,
+                           indices.xgb$`Precisión Positiva`, indices.arbol$`Precisión Positiva`,
+                           indices.knn$`Precisión Positiva`, indices.svm$`Precisión Positiva`),
+  `Precisión Negativa` = c(indicest.4.capas$`Precisión Negativa`, indicest.15.capas$`Precisión Negativa`,
+                           indicest.20.capas$`Precisión Negativa`, indicest.neu$`Precisión Negativa`,
+                           indices.rf$`Precisión Negativa`, indices.ada$`Precisión Negativa`,
+                           indices.xgb$`Precisión Negativa`, indices.arbol$`Precisión Negativa`,
+                           indices.knn$`Precisión Negativa`, indices.svm$`Precisión Negativa`),
+  `Falsos Positivos` = c(indicest.4.capas$`Falsos Positivos`, indicest.15.capas$`Falsos Positivos`,
+                         indicest.20.capas$`Falsos Positivos`, indicest.neu$`Falsos Positivos`,
+                         indices.rf$`Falsos Positivos`, indices.ada$`Falsos Positivos`,
+                         indices.xgb$`Falsos Positivos`, indices.arbol$`Falsos Positivos`,
+                         indices.knn$`Falsos Positivos`, indices.svm$`Falsos Positivos`),
+  `Falsos Negativos` = c(indicest.4.capas$`Falsos Negativos`, indicest.15.capas$`Falsos Negativos`,
+                         indicest.20.capas$`Falsos Negativos`, indicest.neu$`Falsos Negativos`,
+                         indices.rf$`Falsos Negativos`, indices.ada$`Falsos Negativos`,
+                         indices.xgb$`Falsos Negativos`, indices.arbol$`Falsos Negativos`,
+                         indices.knn$`Falsos Negativos`, indices.svm$`Falsos Negativos`),
+  `Asertividad Positiva` = c(indicest.4.capas$`Asertividad Positiva`, indicest.15.capas$`Asertividad Positiva`,
+                             indicest.20.capas$`Asertividad Positiva`, indicest.neu$`Asertividad Positiva`,
+                             indices.rf$`Asertividad Positiva`, indices.ada$`Asertividad Positiva`,
+                             indices.xgb$`Asertividad Positiva`, indices.arbol$`Asertividad Positiva`,
+                             indices.knn$`Asertividad Positiva`, indices.svm$`Asertividad Positiva`),
+  `Asertividad Negativa` = c(indicest.4.capas$`Asertividad Negativa`, indicest.15.capas$`Asertividad Negativa`,
+                             indicest.20.capas$`Asertividad Negativa`, indicest.neu$`Asertividad Negativa`,
+                             indices.rf$`Asertividad Negativa`, indices.ada$`Asertividad Negativa`,
+                             indices.xgb$`Asertividad Negativa`, indices.arbol$`Asertividad Negativa`,
+                             indices.knn$`Asertividad Negativa`, indices.svm$`Asertividad Negativa`)
+)
+
+
+tabla.indices <- kable(comparacion.indices, 
+                       format = "markdown", 
+                       caption = "Comparación de Índices de los Modelos",
+                       align = "c",
+                       row.names = FALSE)
+tabla.indices
+
+```
+Mejor Precisión Global:
+- XGBoost y SVM tienen la mayor precisión global (85.1%).
+
+Menor Error Global:
+- XGBoost y SVM (14.9%).
+
+Mejor Precisión Positiva (detección de positivos):
+- XGBoost (78.3%).
+ 
+Mejor Precisión Negativa (detección de negativos):
+- Árbol de Decisión (93.6%).
+
+Menor Proporción de Falsos Positivos:
+- Árbol de Decisión (6.4%).
+
+Menor Proporción de Falsos Negativos:
+- XGBoost (21.7%).
+
+Mejor Asertividad Positiva:
+- Árbol de Decisión  (88%).
+
+Mejor Asertividad Negativa:
+- XGBoost (85%).
+
+
+- XGBoost y el SVM son los más balanceados, con alta precisión global y buena precisión en positivos y negativos.
+- Árbol de Decisión sobresale en precisión negativa y minimiza falsos positivos.
+
+<h2 style="color:#FF1493;">Ejercicio 3</h2>
+En este ejercicio vamos a predecir números escritos a mano (Hand Written Digit Recognition), la tabla de aprendizaje está en el archivo ZipDataTrainCod.csv y la tabla de testing está en el archivo ZipDataTestCod.csv
+
+
+<h3 style="color:steelblue;">Ejercicio 3.1</h4>
+Cargue las tablas aprendizaje y testing en R de los archivos ZipDataTrainCod.csv y ZipDataTestCod.csv respectivamente.
+```{r}
+numeros.aprendizaje <- read.csv("./DatosTarea10/ZipDataTrainCod.csv", header = TRUE, sep = ";", dec = '.', stringsAsFactors = TRUE)
+numeros.testing <- read.csv("./DatosTarea10/ZipDataTestCod.csv", header = TRUE, sep = ";", dec = '.', stringsAsFactors = TRUE)
+
+```
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 3.2</h4>
+Use el método de Redes Neuronales con el método y los parámetros que usted considere más conveniente para generar un modelo predictivo para la tabla ZipDataTrainCod.csv, luego calcule para los datos de testing, en el archivo ZipDataTestCod.csv, la matriz de confusión, la precisión global y la precisión para cada una de las categorías. ¿Son buenos los resultados? Explique.
+```{r}
+modelo.numeros <- train.nnet(Numero~., data = numeros.aprendizaje,
+                       size = 15, 
+                       rang    = 0.1,
+                       decay   = 5e-4,
+                       maxit   = 1000,
+                       MaxNWts = 10000,
+                       trace   = FALSE)
+
+prediccion.numeros <- predict(modelo.numeros, numeros.testing, type = "class")
+mc.numeros <- confusion.matrix(numeros.testing, prediccion.numeros)
+indices.numeros <- general.indexes(mc = mc.numeros)
+indices.numeros
+
+```
+- En general, los resultados son buenos, con una precisión global alta.
+- La mayoría de las categorías tienen una precisión alta, el 3, 5 y 8 son las más bajas comparadas con los demás números.
+<br>
+<h3 style="color:steelblue;">Ejercicio 3.3</h4>
+Compare los resultados con los obtenidos en la tarea anterior.
+```{r}
+modelo.rf <- train.randomForest(Numero~., data = numeros.aprendizaje, importance = T, ntree = 300)
+
+modelo.ada <- train.adabag(Numero~., data = numeros.aprendizaje, iter = 300)
+
+modelo.xgb <- train.xgboost(Numero~., data = numeros.aprendizaje, nrounds = 300, verbose = FALSE)
+
+#bosques aleatorios
+prediccion.rf <- predict(modelo.rf, numeros.testing, type="class")
+mc.rf <- confusion.matrix(numeros.testing, prediccion.rf)
+indices.rf <- general.indexes(mc = mc.rf)
+
+#ada
+prediccion.ada <- predict(modelo.ada, numeros.testing, type="class")
+mc.ada <- confusion.matrix(numeros.testing, prediccion.ada)
+indices.ada <- general.indexes(mc = mc.ada)
+
+#xgb
+prediccion.xgb <- predict(modelo.xgb, numeros.testing, type="class")
+mc.xgb <- confusion.matrix(numeros.testing, prediccion.xgb)
+indices.xgb <- general.indexes(mc = mc.xgb)
+
+#arbol
+modelo.arbol <- train.rpart(Numero~., data=numeros.aprendizaje, minsplit = 2)
+prediccion.arbol <- predict(modelo.arbol, numeros.testing, type="class")
+mc.arbol <- confusion.matrix(numeros.testing, prediccion.arbol)
+indices.arbol <- general.indexes(mc = mc.arbol)
+
+#knn
+kmax <- floor(sqrt(nrow(numeros.aprendizaje)))
+modelo.knn <- train.knn(Numero ~ ., data = numeros.aprendizaje, kmax = kmax)
+modelo.knn
+prediccion.knn <- predict(modelo.knn, numeros.testing)
+mc.knn <- confusion.matrix(numeros.testing, prediccion.knn)
+indices.knn <- general.indexes(mc = mc.knn)
+
+#svm
+modelo.svm <- train.svm(Numero ~ ., data = numeros.aprendizaje)
+prediccion.svm <- predict(modelo.svm, numeros.testing)
+mc.svm <- confusion.matrix(numeros.testing, prediccion.svm)
+indices.svm <- general.indexes(mc = mc.svm)
+
+#extraccion metricas
+precision.numeros <- indices.numeros$overall.accuracy
+error.numeros <- indices.numeros$overall.error
+
+precision.rf <- indices.rf$overall.accuracy
+error.rf <- indices.rf$overall.error
+
+precision.ada <- indices.ada$overall.accuracy
+error.ada <- indices.ada$overall.error
+
+precision.xgb <- indices.xgb$overall.accuracy
+error.xgb <- indices.xgb$overall.error
+
+precision.arbol <- indices.arbol$overall.accuracy
+error.arbol <- indices.arbol$overall.error
+
+precision.knn <- indices.knn$overall.accuracy
+error.knn <- indices.knn$overall.error
+
+precision.svm <- indices.svm$overall.accuracy
+error.svm <- indices.svm$overall.error
+
+indices.rf
+indices.ada
+indices.xgb
+indices.arbol
+indices.knn
+indices.svm
+
+comparacion <- data.frame(
+  Método = c("Redes neuronales", "Bosques Aleatorios", "Potenciación", "XGBoost", "Árbol de decisión", "KNN", "SVM"),
+  `Overall Accuracy` = c(precision.numeros, precision.rf, precision.ada, precision.xgb, precision.arbol, precision.knn, precision.svm),
+  `Overall Error` = c(error.numeros, error.rf, error.ada, error.xgb, error.arbol, error.knn, error.svm)
+)
+
+tabla <- kable(comparacion, 
+                format = "markdown", 
+                caption = "Comparación de Modelos: Redes Neuronales, Bosques Aleatorios, Potenciación, XGBoost, Árbol de Decisión, KNN y SVM",
+                align = "c",
+                row.names = FALSE)
+
+tabla
+```
+- Los que mejor predicen las categorías y la precisión global son los bosques aleatorios y svm.
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 3.4</h4>
+Repita los ejercicios 1, 2 y 3 pero usando solamente los 3s, 5s y los 8s, ¿Mejoraron los resultados? 
+```{r}
+numeros.aprendizaje <- read.csv("./DatosTarea10/ZipDataTrainCod.csv", header = TRUE, sep = ";", dec = '.', stringsAsFactors = TRUE)
+numeros.testing <- read.csv("./DatosTarea10/ZipDataTestCod.csv", header = TRUE, sep = ";", dec = '.', stringsAsFactors = TRUE)
+
+numeros.aprendizaje$Numero <- as.factor(numeros.aprendizaje$Numero)
+numeros.testing$Numero <- as.factor(numeros.testing$Numero)
+
+clases.filtradas <- c("tres", "cinco", "ocho")
+numeros.aprendizaje.filtrado <- subset(numeros.aprendizaje, Numero %in% clases.filtradas)
+numeros.testing.filtrado <- subset(numeros.testing, Numero %in% clases.filtradas)
+
+# Eliminar niveles no utilizados
+numeros.aprendizaje.filtrado$Numero <- droplevels(numeros.aprendizaje.filtrado$Numero)
+numeros.testing.filtrado$Numero <- droplevels(numeros.testing.filtrado$Numero)
+
+table(numeros.aprendizaje.filtrado$Numero)
+
+table(numeros.testing.filtrado$Numero)
+
+set.seed(123)
+modelo.numeros <- train.nnet(Numero~., data = numeros.aprendizaje.filtrado,
+                       size = 15, 
+                       rang    = 0.1,
+                       decay   = 5e-4,
+                       maxit   = 1000,
+                       MaxNWts = 10000,
+                       trace   = FALSE)
+
+prediccion.numeros <- predict(modelo.numeros, numeros.testing.filtrado, type = "class")
+mc.numeros <- confusion.matrix(numeros.testing.filtrado, prediccion.numeros)
+indices.numeros <- general.indexes(mc = mc.numeros)
+indices.numeros
+
+
+```
+```{r}
+modelo.rf <- train.randomForest(Numero~., data = numeros.aprendizaje.filtrado, importance = T, ntree = 300)
+
+modelo.ada <- train.adabag(Numero~., data = numeros.aprendizaje.filtrado, iter = 300)
+
+modelo.xgb <- train.xgboost(Numero~., data = numeros.aprendizaje.filtrado, nrounds = 300, verbose = FALSE)
+
+#bosques aleatorios
+prediccion.rf <- predict(modelo.rf, numeros.testing.filtrado, type="class")
+mc.rf <- confusion.matrix(numeros.testing.filtrado, prediccion.rf)
+indices.rf <- general.indexes(mc = mc.rf)
+indices.rf
+
+#ada
+prediccion.ada <- predict(modelo.ada, numeros.testing.filtrado, type="class")
+mc.ada <- confusion.matrix(numeros.testing.filtrado, prediccion.ada)
+indices.ada <- general.indexes(mc = mc.ada)
+indices.ada
+
+#xgb
+prediccion.xgb <- predict(modelo.xgb, numeros.testing.filtrado, type="class")
+mc.xgb <- confusion.matrix(numeros.testing.filtrado, prediccion.xgb)
+indices.xgb <- general.indexes(mc = mc.xgb)
+indices.xgb
+
+#arbol
+modelo.arbol <- train.rpart(Numero~., data=numeros.aprendizaje.filtrado, minsplit = 2)
+prediccion.arbol <- predict(modelo.arbol, numeros.testing.filtrado, type="class")
+mc.arbol <- confusion.matrix(numeros.testing.filtrado, prediccion.arbol)
+indices.arbol <- general.indexes(mc = mc.arbol)
+indices.arbol
+
+#knn
+kmax <- floor(sqrt(nrow(numeros.aprendizaje.filtrado)))
+modelo.knn <- train.knn(Numero ~ ., data = numeros.aprendizaje.filtrado, kmax = kmax)
+prediccion.knn <- predict(modelo.knn, numeros.testing.filtrado)
+mc.knn <- confusion.matrix(numeros.testing.filtrado, prediccion.knn)
+indices.knn <- general.indexes(mc = mc.knn)
+indices.knn
+
+#svm
+modelo.svm <- train.svm(Numero ~ ., data = numeros.aprendizaje.filtrado)
+prediccion.svm <- predict(modelo.svm, numeros.testing.filtrado)
+mc.svm <- confusion.matrix(numeros.testing.filtrado, prediccion.svm)
+indices.svm <- general.indexes(mc = mc.svm)
+indices.svm
+
+#extraccion metricas
+precision.numeros <- indices.numeros$overall.accuracy
+error.numeros <- indices.numeros$overall.error
+category.accuracy.numeros <- indices.numeros$category.accuracy
+
+precision.rf <- indices.rf$overall.accuracy
+error.rf <- indices.rf$overall.error
+category.accuracy.rf <- indices.rf$category.accuracy
+
+precision.ada <- indices.ada$overall.accuracy
+error.ada <- indices.ada$overall.error
+category.accuracy.ada <- indices.ada$category.accuracy
+
+precision.xgb <- indices.xgb$overall.accuracy
+error.xgb <- indices.xgb$overall.error
+category.accuracy.xgb <- indices.xgb$category.accuracy
+
+precision.arbol <- indices.arbol$overall.accuracy
+error.arbol <- indices.arbol$overall.error
+category.accuracy.arbol <- indices.arbol$category.accuracy
+
+precision.knn <- indices.knn$overall.accuracy
+error.knn <- indices.knn$overall.error
+category.accuracy.knn <- indices.knn$category.accuracy
+
+precision.svm <- indices.svm$overall.accuracy
+error.svm <- indices.svm$overall.error
+category.accuracy.svm <- indices.svm$category.accuracy
+
+
+
+comparacion <- data.frame(
+  Método = c("Redes neuronales", "Bosques Aleatorios", "Potenciación", "XGBoost", "Árbol de decisión", "KNN", "SVM"),
+  `Overall Accuracy` = c(precision.numeros, precision.rf, precision.ada, precision.xgb, precision.arbol, precision.knn, precision.svm),
+  `Overall Error` = c(error.numeros, error.rf, error.ada, error.xgb, error.arbol, error.knn, error.svm),
+  `Category Accuracy 5` = c(category.accuracy.numeros[1],  category.accuracy.rf[1], category.accuracy.ada[1], category.accuracy.xgb[1], category.accuracy.arbol[1], category.accuracy.knn[1], category.accuracy.svm[1]),
+  `Category Accuracy 8` = c(category.accuracy.numeros[2], category.accuracy.rf[2], category.accuracy.ada[2], category.accuracy.xgb[2], category.accuracy.arbol[2], category.accuracy.knn[2], category.accuracy.svm[2]),
+  `Category Accuracy 3` = c(category.accuracy.numeros[3], category.accuracy.rf[3], category.accuracy.ada[3], category.accuracy.xgb[3], category.accuracy.arbol[3], category.accuracy.numeros[3], category.accuracy.svm[3])
+)
+
+tabla <- kable(comparacion, 
+                format = "markdown", 
+                caption = "Comparación de Modelos: Redes Neuronales, Bosques Aleatorios, Potenciación, XGBoost, Árbol de Decisión, KNN y SVM",
+                align = "c",
+                row.names = FALSE)
+
+tabla
+```
+
+- Los resultados mejoraron para todos los métodos y predice mejor por categoría.
+- Comparado con el ejercicio anterior solo el svm bajo un poco la precisión.
+
+<br>
+<h3 style="color:steelblue;">Ejercicio 3.5</h4>
+Repita los ejercicios 1, 2 y 3 pero reemplazando cada bloque 4 × 4 de píxeles por su promedio, ¿Mejoraron los resultados? Recuerde que cada bloque 16×16 está representado por una fila en las matrices de aprendizaje y testing.
+```{r}
+promediar.bloques <- function(datos) {
+  # Excluir columna Numero
+  pixeles <- as.matrix(datos[, -1])
+  
+  # Número de características originales
+  num.caracteristicas <- ncol(pixeles)
+  
+  if (num.caracteristicas != 256) {
+    stop("El número de características debe ser 256 (16x16 píxeles).")
+  }
+  
+  # Inicializar matriz para nuevas características
+  num.bloques <- 16  # 4 bloques por fila y columna => 16 bloques en total
+  nuevas.caracteristicas <- matrix(0, nrow = nrow(pixeles), ncol = num.bloques)
+  
+  # Iterar sobre cada imagen
+  for (i in 1:nrow(pixeles)) {
+    # Transformar a matriz 16x16
+    matriz.imagen <- matrix(pixeles[i, ], nrow = 16, ncol = 16, byrow = TRUE)
+    
+    # Inicializar vector para almacenar promedios de bloques
+    promedios.bloques <- c()
+    
+    # Dividir en bloques de 4x4
+    for (fila in seq(1, 16, by = 4)) {
+      for (columna in seq(1, 16, by = 4)) {
+        bloque <- matriz.imagen[fila:(fila+3), columna:(columna+3)]
+        promedios.bloques <- c(promedios.bloques, mean(bloque))
+      }
+    }
+    
+    # Asignar los promedios a la matriz de nuevas características
+    nuevas.caracteristicas[i, ] <- promedios.bloques
+  }
+  
+
+  nuevas.caracteristicas.df <- as.data.frame(nuevas.caracteristicas)
+  colnames(nuevas.caracteristicas.df) <- paste0("Bloque", 1:num.bloques)
+  
+  # Combinar con la variable objetivo
+  datos.nuevos <- cbind(Numero = datos$Numero, nuevas.caracteristicas.df)
+  
+  return(datos.nuevos)
+}
+
+
+numeros.aprendizaje <- read.csv("./DatosTarea10/ZipDataTrainCod.csv", header = TRUE, sep = ";", dec = '.', stringsAsFactors = TRUE)
+
+numeros.testing <- read.csv("./DatosTarea10/ZipDataTestCod.csv", header = TRUE, sep = ";", dec = '.', stringsAsFactors = TRUE)
+
+numeros.aprendizaje.promedio <- promediar.bloques(numeros.aprendizaje)
+numeros.testing.promedio <- promediar.bloques(numeros.testing)
+
+dim(numeros.aprendizaje.promedio)
+dim(numeros.testing.promedio)
+
+```
+
+```{r}
+set.seed(123)
+modelo.numeros <- train.nnet(Numero~., data = numeros.aprendizaje.promedio,
+                       size = 15, 
+                       rang    = 0.1,
+                       decay   = 5e-4,
+                       maxit   = 1000,
+                       MaxNWts = 10000,
+                       trace   = FALSE)
+
+prediccion.numeros <- predict(modelo.numeros, numeros.testing.promedio, type = "class")
+mc.numeros <- confusion.matrix(numeros.testing.promedio, prediccion.numeros)
+indices.numeros <- general.indexes(mc = mc.numeros)
+indices.numeros
+
+modelo.rf <- train.randomForest(Numero~., data = numeros.aprendizaje.promedio, importance = T, ntree = 300)
+
+modelo.ada <- train.adabag(Numero~., data = numeros.aprendizaje.promedio, iter = 300)
+
+modelo.xgb <- train.xgboost(Numero~., data = numeros.aprendizaje.promedio, nrounds = 300, verbose = FALSE)
+
+#bosques aleatorios
+prediccion.rf <- predict(modelo.rf, numeros.testing.promedio, type="class")
+mc.rf <- confusion.matrix(numeros.testing.promedio, prediccion.rf)
+indices.rf <- general.indexes(mc = mc.rf)
+indices.rf
+
+#ada
+prediccion.ada <- predict(modelo.ada, numeros.testing.promedio, type="class")
+mc.ada <- confusion.matrix(numeros.testing.promedio, prediccion.ada)
+indices.ada <- general.indexes(mc = mc.ada)
+indices.ada
+
+#xgb
+prediccion.xgb <- predict(modelo.xgb, numeros.testing.promedio, type="class")
+mc.xgb <- confusion.matrix(numeros.testing.promedio, prediccion.xgb)
+indices.xgb <- general.indexes(mc = mc.xgb)
+indices.xgb
+
+#arbol
+modelo.arbol <- train.rpart(Numero~., data=numeros.aprendizaje.promedio, minsplit = 2)
+prediccion.arbol <- predict(modelo.arbol, numeros.testing.promedio, type="class")
+mc.arbol <- confusion.matrix(numeros.testing.promedio, prediccion.arbol)
+indices.arbol <- general.indexes(mc = mc.arbol)
+indices.arbol
+
+#knn
+kmax <- floor(sqrt(nrow(numeros.aprendizaje.promedio)))
+modelo.knn <- train.knn(Numero ~ ., data = numeros.aprendizaje.promedio, kmax = kmax)
+prediccion.knn <- predict(modelo.knn, numeros.testing.promedio)
+mc.knn <- confusion.matrix(numeros.testing.promedio, prediccion.knn)
+indices.knn <- general.indexes(mc = mc.knn)
+indices.knn
+
+#svm
+modelo.svm <- train.svm(Numero ~ ., data = numeros.aprendizaje.promedio)
+prediccion.svm <- predict(modelo.svm, numeros.testing.promedio)
+mc.svm <- confusion.matrix(numeros.testing.promedio, prediccion.svm)
+indices.svm <- general.indexes(mc = mc.svm)
+indices.svm
+
+#extraccion metricas
+precision.numeros <- indices.numeros$overall.accuracy
+error.numeros <- indices.numeros$overall.error
+category.accuracy.numeros <- indices.numeros$category.accuracy
+
+precision.rf <- indices.rf$overall.accuracy
+error.rf <- indices.rf$overall.error
+category.accuracy.rf <- indices.rf$category.accuracy
+
+precision.ada <- indices.ada$overall.accuracy
+error.ada <- indices.ada$overall.error
+category.accuracy.ada <- indices.ada$category.accuracy
+
+precision.xgb <- indices.xgb$overall.accuracy
+error.xgb <- indices.xgb$overall.error
+category.accuracy.xgb <- indices.xgb$category.accuracy
+
+precision.arbol <- indices.arbol$overall.accuracy
+error.arbol <- indices.arbol$overall.error
+category.accuracy.arbol <- indices.arbol$category.accuracy
+
+precision.knn <- indices.knn$overall.accuracy
+error.knn <- indices.knn$overall.error
+category.accuracy.knn <- indices.knn$category.accuracy
+
+precision.svm <- indices.svm$overall.accuracy
+error.svm <- indices.svm$overall.error
+category.accuracy.svm <- indices.svm$category.accuracy
+
+
+
+comparacion <- data.frame(
+  Método = c("Redes neuronales", "Bosques Aleatorios", "Potenciación", "XGBoost", "Árbol de decisión", "KNN", "SVM"),
+  `Overall Accuracy` = c(precision.numeros, precision.rf, precision.ada, precision.xgb, precision.arbol, precision.knn, precision.svm),
+  `Overall Error` = c(error.numeros, error.rf, error.ada, error.xgb, error.arbol, error.knn, error.svm))
+
+tabla <- kable(comparacion, 
+                format = "markdown", 
+                caption = "Comparación de Modelos: Redes Neuronales, Bosques Aleatorios, Potenciación, XGBoost, Árbol de Decisión, KNN y SVM",
+                align = "c",
+                row.names = FALSE)
+
+tabla
+```
+- Comparando estos resultados con el ejericicio 3.3, en cuanto a precisión global, los resultados en este ejercicio bajaron un poco, así que es mejor el resultado del 3.3. 
+- En cuanto a la precisión por categoría, tampoco mejoraron en este ejercicio.
+
+
+<h2 style="color:#FF1493;">Ejercicio 4</h2>
+Para la Tabla de Datos que se muestra seguidamente donde x^j para j = 1, 2, 3 son las variables predictoras y la variable a predecir es z diseñe y programe a pie una Red Neuronal de una capa (Perceptron).
+
+```{r}
+
+datos <- matrix(c(
+  1, 0, 0, 1,
+  1, 0, 1, 1,
+  1, 1, 0, 1,
+  1, 1, 1, 0
+), ncol=4, byrow=TRUE)
+
+# Función de activación (tangente hiperbólica)
+f <- function(x) {
+  return(2 / (1 + exp(-2 * x)) - 1)
+}
+
+# Función escalón
+I <- function(t) {
+  return(ifelse(t >= 0, 1, 0))
+}
+
+# Función de error cuadrático medio
+E <- function(w1, w2, w3, theta) {
+  error <- 0
+  for (i in 1:4) {
+    z.pred <- f(sum(c(w1, w2, w3) * datos[i, 1:3]) - theta)
+    error <- error + (I(z.pred) - datos[i, 4])^2
+  }
+  return(error / 4)
+}
+
+# Función para buscar los mejores parámetros
+buscar.parametros.optimos <- function() {
+  v <- seq(-1, 1, by=0.1)
+  u <- seq(0, 1, by=0.1)
+  
+  mejor.error <- Inf
+  mejores.params <- c(0, 0, 0, 0)
+  
+  for (w1 in v) {
+    for (w2 in v) {
+      for (w3 in v) {
+        for (theta in u) {
+          error.actual <- E(w1, w2, w3, theta)
+          if (error.actual < mejor.error) {
+            mejor.error <- error.actual
+            mejores.params <- c(w1, w2, w3, theta)
+          }
+        }
+      }
+    }
+  }
+  
+  return(list(params = mejores.params, error = mejor.error))
+}
+
+# Implementación de la red neuronal (Perceptrón)
+perceptron <- function(x1, x2, x3, w1, w2, w3, theta) {
+  z <- f(w1*x1 + w2*x2 + w3*x3 - theta)
+  return(I(z))
+}
+
+# Buscar los mejores parámetros
+resultados <- buscar.parametros.optimos()
+
+cat("Mejores parámetros encontrados:\n")
+cat("w1 =", resultados$params[1], "\n")
+cat("w2 =", resultados$params[2], "\n")
+cat("w3 =", resultados$params[3], "\n")
+cat("theta =", resultados$params[4], "\n")
+cat("Error cuadrático medio:", resultados$error, "\n\n")
+
+# Usar la red neuronal para predecir
+cat("Predicciones de la red neuronal:\n")
+for (i in 1:nrow(datos)) {
+  prediccion <- perceptron(datos[i,1], datos[i,2], datos[i,3], 
+                           resultados$params[1], resultados$params[2], 
+                           resultados$params[3], resultados$params[4])
+  cat("Entrada:", datos[i,1:3], "| Salida esperada:", datos[i,4], 
+      "| Predicción:", prediccion, "\n")
+}
+```
+
